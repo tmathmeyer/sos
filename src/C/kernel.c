@@ -1,5 +1,6 @@
 #include "libk.h"
 #include "multiboot.h"
+#include "cpuio.h"
 
 void error(char *err, char errno) {
     kprintf("%4fs = %4fc\n", err, errno);
@@ -59,4 +60,6 @@ int kmain(struct multiboot_header *multiboot_info) {
     }
 
     print_elf_and_mmap(multiboot_info);
+    initialize_interrupts();
+    initialize_keyboard();
 }

@@ -175,7 +175,7 @@ uint32_t _kprintf(int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9
                             case 'n':
                                 chars += write_num(*((uint64_t *) arg), color);
                                 break;
-                            
+
                             case 'x':
                                 chars += write_hex(*((uint64_t *) arg), color);
                                 break;

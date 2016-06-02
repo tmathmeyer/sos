@@ -3,7 +3,7 @@
 
 int valid_multiboot(struct multiboot_header *header) {
 	const struct tag END = {.type=0, .flags=0, .size=8};
-	
+
 	uint64_t end_addr = (uint64_t) header;
 	end_addr += (header->total_size - END.size);
 
@@ -28,7 +28,7 @@ struct multiboot_tag_iterator get_tag_iterator(struct multiboot_header *header) 
 void *find_by_type(struct multiboot_header *header, uint16_t type) {
     struct tag *current = &(header->tags);
     while(current->type != type) {
-        
+
         if (current->type==0 && current->size==8) {
             return 0;
         }
