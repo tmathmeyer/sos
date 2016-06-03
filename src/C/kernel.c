@@ -69,9 +69,8 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     kprintf("page: %3fx\n", page);
     kprintf("frame: %3fx\n", translate_address((void *)(0xdeadbeef)));
     kprintf("frame_cont: %3fs\n", ((char *)translate_address((void *)(0xdeadbeef))));
-
     unmap_page(page, &falloc);
-    unmap_page(page, &falloc);
+    kprintf("frame_cont: %3fs\n", ((char *)translate_address((void *)(0xdeadbeef))));
 }
 
 
