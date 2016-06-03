@@ -43,3 +43,6 @@ uint32_t kputs(char *);
 
 #define ERROR(msg) do{error_stack_dump((msg), __FILE__, __LINE__);}while(0)
 void error_stack_dump(char *, char *, uint32_t);
+
+#define WARN(msg) do{warn_msg((msg), __FILE__, __LINE__);}while(0)
+void warn_msg(char *, char *, uint32_t);

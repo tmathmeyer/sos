@@ -100,6 +100,35 @@ void identity_map(frame_t frame, uint8_t flags, frame_allocator *alloc) {
             alloc);
 }
 
+void unmap_page(page_t page, frame_allocator *alloc) {
+    page_table_t p4 = (page_table_t)PAGE_TABLE4;
+    if (!p4[p4_index(page)].present) {
+        WARN("cannot unmap frame as it is not present");
+        return;
+    }
+    page_table_t p3 = sub_table_address(p4, p4_index(page));
+
+    if (!p3[p3_index(page)].present) {
+        WARN("cannot unmap frame as it is not present");
+        return;
+    }
+    page_table_t p2 = sub_table_address(p3, p3_index(page));
+
+    if (!p2[p2_index(page)].present) {
+        WARN("cannot unmap frame as it is not present");
+        return;
+    }
+    page_table_t p1 = sub_table_address(p2, p2_index(page));
+
+    if (!p1[p1_index(page)].present) {
+        WARN("cannot unmap frame as it is not present");
+        return;
+    }
+    p1[p1_index(page)].present = 0;
+    WARN("FRAME NOT BEING FREED. GET BETTER FRAME ALLOCATOR");
+}
+
+
 void map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
     frame_t frame = allocate_frame(alloc);
     if (!frame) {

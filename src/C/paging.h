@@ -66,6 +66,7 @@ frame_allocator init_allocator(struct memory_map_tag *, physical_address,
 
 
 uint64_t containing_address(uint64_t addr);
+void unmap_page(page_t, frame_allocator *);
 uint64_t starting_address(uint64_t page_frame);
 page_table_t referenced_table(page_entry_t entry);
 void map_page(page_t, uint8_t, frame_allocator *);
