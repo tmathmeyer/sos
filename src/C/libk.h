@@ -7,6 +7,9 @@
 #define COLS 80
 #define VIDB 2
 
+#define PAGE 1
+#define FRAME 0
+
 enum vga_color {
     COLOR_BLACK = 0,
     COLOR_BLUE = 1,
@@ -27,6 +30,8 @@ enum vga_color {
 };
 
 void *memset(void *p, int b, size_t n);
+void *page_frame_copy(void *src, size_t spf, void *dest, size_t dpf, size_t bytes);
+
 
 void wait(void);
 void kio_init(void);
@@ -35,3 +40,6 @@ void clear_screen(void);
 uint32_t _kprintf(int,int,int,int,int,int,int,int,int,int, const char fmt[], ...);
 uint32_t kputs(char *);
 #endif
+
+#define ERROR(msg) do{error_stack_dump((msg), __FILE__, __LINE__);}while(0)
+void error_stack_dump(char *, char *, uint32_t);

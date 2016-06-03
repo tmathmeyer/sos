@@ -20,6 +20,9 @@ start:
     mov es, ax
     jmp gdt64.code:long_mode
 set_up_page_tables:
+    mov eax, p4_table
+    or eax, 0b11 ; present + writable
+    mov [p4_table + 511 * 8], eax
     mov eax, p3_table
     or eax, 0b11
     mov [p4_table], eax
@@ -120,7 +123,7 @@ p3_table:
 p2_table:
     resb 4096
 stack_bottom:
-    resb 4096
+    resb 8192
 stack_top:
 
 section .rodata

@@ -6,11 +6,9 @@
 
 extern void load_idt(void);
 
-void error(char *err, char errno) {
-    kprintf("%4fs = %4fc\n", err, errno);
-    for(;;);
+void error_stack_dump(char *msg, char *file, uint32_t line_no) {
+    kprintf("%cfs%4fs\n%4fs:%4fx\n", "ERROR: ", msg, file, line_no);
 }
-
 
 void print_memory_area(struct memory_area *area) {
     kprintf("    start: %07x, length: %07x\n", area->base_addr, area->length);
@@ -21,12 +19,11 @@ void print_elf_section(struct elf_section *section) {
             section->addr, section->size, section->flags);
 }
 
-
 void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     struct elf_section_tag *elf_sections = find_by_type(multiboot_info, ELF_TAG_TYPE);
     struct memory_map_tag *mmap_sections = find_by_type(multiboot_info, MMAP_TAG_TYPE);
     if (elf_sections == 0 || mmap_sections == 0) {
-        error("could not find elf or mmap sections", 'S');
+        ERROR("could not find elf or mmap sections");
     }
 
     kprintf("memory areas:\n");
@@ -56,10 +53,17 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     multiboot_end = multiboot_start + multiboot_info->total_size;
     kprintf("mboot start:  %03x, mboot end:  %03x\n", multiboot_start, multiboot_end);
 
-    frame_allocator_t frame_allocator = 
-        falloc_new(kernel_start, kernel_end, multiboot_start, multiboot_end, mmap_sections);
+    frame_allocator falloc
+        = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
+
+    char *string = "DEADBEEF";
+    page_t page = containing_address(0xdeadbeef);
+    map_page(page, 0x00, &falloc);
+    page_frame_copy(string, FRAME, (void *)0xdeadbeef, PAGE, 9);
     
-    remap_kernel(frame_allocator, multiboot_info);
+    kprintf("page: %3fx\n", page);
+    kprintf("frame: %3fx\n", translate_address((void *)(0xdeadbeef)));
+    kprintf("frame_cont: %3fs\n", ((char *)translate_address((void *)(0xdeadbeef))));
 }
 
 
@@ -67,9 +71,9 @@ int kmain(struct multiboot_header *multiboot_info) {
     kio_init();
     clear_screen();
 
-    int ERROR = valid_multiboot(multiboot_info);
-    if (ERROR) {
-        error("multiboot information invalid", ERROR);
+    int ERR = valid_multiboot(multiboot_info);
+    if (ERR) {
+        ERROR("multiboot information invalid");
         return 1;
     }
     enable_kernel_paging(multiboot_info);

@@ -89,7 +89,7 @@ uint32_t write_char(char str, uint8_t color) {
 }
 
 uint32_t write_hex(uint64_t a, uint8_t color) {
-    uint8_t writing = 1;
+    uint8_t writing = 0;
     write_char('0', color);
     write_char('x', color);
 
@@ -103,7 +103,7 @@ uint32_t write_hex(uint64_t a, uint8_t color) {
             write_char(chars[(a>>shift)&0x0F], color);
         }
     } while(shift);
-    return writing+1;
+    return writing+2;
 }
 
 
