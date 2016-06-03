@@ -1,7 +1,7 @@
 #include "libk.h"
 #include "multiboot.h"
 #include "interrupts.h"
-#include "pages.h"
+#include "paging.h"
 
 
 extern void load_idt(void);
@@ -22,7 +22,7 @@ void print_elf_section(struct elf_section *section) {
 }
 
 
-void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
+void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     struct elf_section_tag *elf_sections = find_by_type(multiboot_info, ELF_TAG_TYPE);
     struct memory_map_tag *mmap_sections = find_by_type(multiboot_info, MMAP_TAG_TYPE);
     if (elf_sections == 0 || mmap_sections == 0) {
@@ -34,17 +34,36 @@ void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
 
     kprintf("kernel sections:\n");
     itr_elf_sections(elf_sections, print_elf_section);
+
+    uint64_t kernel_start=0, kernel_end=0;
+    kernel_start = ~kernel_start;
+
+    void k_minmax(struct elf_section *area) {
+        if (((uint64_t)(area->addr)) < kernel_start) {
+            kernel_start = (uint64_t)(area->addr);
+        }
+        if (((uint64_t)(area->addr))+area->size > kernel_end) {
+            kernel_end = (uint64_t)(area->addr);
+            kernel_end += area->size;
+        }
+    }
+
+    itr_elf_sections(elf_sections, k_minmax);
+    kprintf("kernel start: %03x, kernel end: %03x\n", kernel_start, kernel_end);
+
+    uint64_t multiboot_start=0, multiboot_end=0;
+    multiboot_start = (uint64_t)multiboot_info;
+    multiboot_end = multiboot_start + multiboot_info->total_size;
+    kprintf("mboot start:  %03x, mboot end:  %03x\n", multiboot_start, multiboot_end);
+
+    frame_allocator_t frame_allocator = 
+        falloc_new(kernel_start, kernel_end, multiboot_start, multiboot_end, mmap_sections);
+    
+    remap_kernel(frame_allocator, multiboot_info);
 }
 
 
 int kmain(struct multiboot_header *multiboot_info) {
-    init_kernel_pages();
-    load_idt();
-
-    //intel_8259_set_irq_mask(I8259_MASK_ALL);
-    //intel_8259_enable_irq(1);
-
-
     kio_init();
     clear_screen();
 
@@ -53,7 +72,7 @@ int kmain(struct multiboot_header *multiboot_info) {
         error("multiboot information invalid", ERROR);
         return 1;
     }
-    print_elf_and_mmap(multiboot_info);
+    enable_kernel_paging(multiboot_info);
 
     for(;;);
 }
