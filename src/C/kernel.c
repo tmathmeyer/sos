@@ -56,6 +56,7 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
+    frame_t _fr = allocate_frame(&falloc);
     char *string = "DEADBEEF";
     page_t page = containing_address(0xdeadbeef);
     map_page(page, 0x00, &falloc);
