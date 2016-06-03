@@ -1,12 +1,14 @@
 #include "libk.h"
 #include "multiboot.h"
 #include "interrupts.h"
+#include "pages.h"
+
 
 extern void load_idt(void);
 
 void error(char *err, char errno) {
     kprintf("%4fs = %4fc\n", err, errno);
-	for(;;);
+    for(;;);
 }
 
 
@@ -36,21 +38,22 @@ void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
 
 
 int kmain(struct multiboot_header *multiboot_info) {
-	load_idt();
+    init_kernel_pages();
+    load_idt();
 
-	//intel_8259_set_irq_mask(I8259_MASK_ALL);
-	//intel_8259_enable_irq(1);
-	
+    //intel_8259_set_irq_mask(I8259_MASK_ALL);
+    //intel_8259_enable_irq(1);
 
-	kio_init();
+
+    kio_init();
     clear_screen();
-    
+
     int ERROR = valid_multiboot(multiboot_info);
     if (ERROR) {
         error("multiboot information invalid", ERROR);
         return 1;
     }
     print_elf_and_mmap(multiboot_info);
-	
-	for(;;);
+
+    for(;;);
 }
