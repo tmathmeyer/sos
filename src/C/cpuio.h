@@ -6,18 +6,9 @@
 #define PIC1            0x20        /* IO base address for master PIC */
 #define PIC2            0xA0        /* IO base address for slave PIC */
 #define PIC1_COMMAND    (PIC1)
-#define PIC1_DATA       (PIC1+1)
 #define PIC2_COMMAND    (PIC2)
-#define PIC2_DATA       (PIC2+1)
-
-#define OFFSET1         0x20
-#define OFFSET2         0x28
-
-#define CMD_INIT        0x11
-#define MODE_8086       0x01
 #define PIC_EOI         0x20
 #define INTERRUPT_GATE  0x8e
-#define KERNEL_CODE_SEGMENT_OFFSET 0x08
 
 struct IDT_entry {
     uint16_t low_bits;
@@ -76,6 +67,4 @@ static inline void PIC_sendEOI(unsigned char irq) {
     outb(PIC1_COMMAND,PIC_EOI);
 }
 
-void initialize_interrupts(void);
-void initialize_keyboard(void);
 #endif

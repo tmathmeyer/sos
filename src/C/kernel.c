@@ -1,6 +1,7 @@
 #include "libk.h"
 #include "multiboot.h"
 #include "cpuio.h"
+#include "interrupts.h"
 
 void error(char *err, char errno) {
     kprintf("%4fs = %4fc\n", err, errno);
@@ -15,21 +16,6 @@ void print_memory_area(struct memory_area *area) {
 void print_elf_section(struct elf_section *section) {
     kprintf("  addr: %07x, size: %07x, flags: %07x\n",
             section->addr, section->size, section->flags);
-#ifdef DEBUG
-    kprintf("    name: %07x, type: %07x, flags: %07x, addr: %07x\n"
-            "    offset: %07x, size: %07x, link: %07x, info: %07x\n"
-            "    align: %07x, entry_size %07x\n\n",
-            section->name,
-            section->type,
-            section->flags,
-            section->addr,
-            section->offset,
-            section->size,
-            section->link,
-            section->info,
-            section->addralign,
-            section->entry_size);
-#endif
 }
 
 
@@ -51,15 +37,16 @@ void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
 int kmain(struct multiboot_header *multiboot_info) {
     kio_init();
     clear_screen();
+    
+    
+    intel_8259_set_idt_start(32);
+    initialize_keyboard();
 
+    
     int ERROR = valid_multiboot(multiboot_info);
-
     if (ERROR) {
         error("multiboot information invalid", ERROR);
         return 1;
     }
-
     print_elf_and_mmap(multiboot_info);
-    initialize_interrupts();
-    initialize_keyboard();
 }
