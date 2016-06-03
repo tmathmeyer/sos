@@ -1,11 +1,7 @@
 #ifndef libk_h
 #define libk_h
 
-typedef unsigned char           uint8_t;
-typedef unsigned short          uint16_t;
-typedef unsigned int            uint32_t;
-typedef unsigned long long      uint64_t;
-
+#include "ktype.h"
 
 #define ROWS 25
 #define COLS 80
@@ -29,11 +25,6 @@ enum vga_color {
     COLOR_LIGHT_BROWN = 14,
     COLOR_WHITE = 15,
 };
-
-void kmemcopy(char *, char *, unsigned long);
-void putcharat(char, int, int, char);
-void print_hex(uint64_t);
-
 
 void wait(void);
 void kio_init(void);
