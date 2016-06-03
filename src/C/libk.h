@@ -26,6 +26,8 @@ enum vga_color {
     COLOR_WHITE = 15,
 };
 
+void *memset(void *p, int b, size_t n);
+
 void wait(void);
 void kio_init(void);
 void clear_screen(void);

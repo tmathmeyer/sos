@@ -37,13 +37,9 @@ void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
 
 int kmain(struct multiboot_header *multiboot_info) {
 	load_idt();
-    intel_8259_set_idt_start(32);
-    
-    
-    
 
-	intel_8259_set_irq_mask(I8259_MASK_ALL);
-	intel_8259_enable_irq(1);
+	//intel_8259_set_irq_mask(I8259_MASK_ALL);
+	//intel_8259_enable_irq(1);
 	
 
 	kio_init();

@@ -67,34 +67,40 @@ void intel_8259_set_idt_start(int index) {
 }
 
 
-void handle_irq(system_state_t *state, irq_e code) {
-	/*
-    // IRQ from kernel mode => was HLT
-    bool is_halt = IS_KERNEL_STATE(state);
-
-    if (!is_halt) {
-        // HLT => not in schedule
-        return_from_schedule(state);
-
-        if (code == IRQ0) schedule();
-    }
-
-    irq_handler handler = irq_handlers[code];
-    if (handler) {
-        handler(state);
-    }
-
-	*/
-    EOI();
+void keyboard(void) {
+    kprintf("blah \n");
 }
 
-void handle_cpu_exception(system_state_t *state, cpu_exception_e code) {
-    /*
-	kprintf("CPU Exception %d received\n", code);
-    */
-	while (true) {}
+
+
+void set_handler(size_t at, void(fn)(void));
+idt_entry_t idts[256];
+
+
+void load_idt() {
+    intel_8259_set_idt_start(32);
+    memset(idts, 0, sizeof(idts));
+
+    for(int i=32; i<256; i++) {
+        set_handler(i, keyboard);
+    }
+
+    descriptor_table_t IDTR = {
+        .offset = (uint64_t)idts,
+        .limit  = sizeof(idts) - 1,
+    };
+
+    asm("lidt %0" :: "m" (IDTR) : "memory");
+    asm("sti");
 }
 
-void handle_syscall(system_state_t *state) {
-
+void set_handler(size_t at, void(_fn)(void)) {
+    uint64_t fn = (uint64_t)_fn;
+    idts[at].ptr_low  = fn & 0xffff;
+    idts[at].ptr_mid  = (fn >> 16) & 0xffff;
+    idts[at].ptr_high = (fn >> 32) & 0xffffffff;
+    idts[at].zero = 0;
+    idts[at]._zero = 0;
+    idts[at].selector = 0x08;
+    idts[at].type_attrs = 0xEE;
 }
