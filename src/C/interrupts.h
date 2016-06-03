@@ -25,5 +25,95 @@
 #define I8259_ICW4_SFNM 0x10        /* Special fully nested (not) */
 
 void intel_8259_set_idt_start(int index);
+void intel_8259_enable_irq(int irqno);
+void intel_8259_set_irq_mask(uint16_t mask);
+uint16_t intel_8259_get_irq_mask();
+
+typedef struct {
+    uintptr_t rip;
+    uintptr_t code_selector;
+    uint64_t rflags;
+    uintptr_t rsp;
+    uintptr_t stack_selector;
+} iretq_state_t;
+
+typedef struct {
+    uint64_t rax;
+    uint64_t rbx;
+    uint64_t rcx;
+    uint64_t rdx;
+    uint64_t rbp;
+    uint64_t rsi;
+    uint64_t rdi;
+    uint64_t r8;
+    uint64_t r9;
+    uint64_t r10;
+    uint64_t r11;
+    uint64_t r12;
+    uint64_t r13;
+    uint64_t r14;
+    uint64_t r15;
+} register_state_t;
+
+typedef enum {
+    CPU_EXC0,
+    CPU_EXC1,
+    CPU_EXC2,
+    CPU_EXC3,
+    CPU_EXC4,
+    CPU_EXC5,
+    CPU_EXC6,
+    CPU_EXC7,
+    CPU_EXC8,
+    CPU_EXC9,
+    CPU_EXC10,
+    CPU_EXC11,
+    CPU_EXC12,
+    CPU_EXC13,
+    CPU_EXC14,
+    CPU_EXC15,
+    CPU_EXC16,
+    CPU_EXC17,
+    CPU_EXC18,
+    CPU_EXC19,
+    CPU_EXC20,
+    CPU_EXC21,
+    CPU_EXC22,
+    CPU_EXC23,
+    CPU_EXC24,
+    CPU_EXC25,
+    CPU_EXC26,
+    CPU_EXC27,
+    CPU_EXC28,
+    CPU_EXC29,
+    CPU_EXC30,
+    CPU_EXC31,
+} cpu_exception_e;
+
+typedef enum {
+    IRQ0,
+    IRQ1,
+    IRQ2,
+    IRQ3,
+    IRQ4,
+    IRQ5,
+    IRQ6,
+    IRQ7,
+    IRQ8,
+    IRQ9,
+    IRQ10,
+    IRQ11,
+    IRQ12,
+    IRQ13,
+    IRQ14,
+    IRQ15,
+    MAX_IRQ,
+
+} irq_e;
+
+typedef struct {
+    register_state_t registers;
+    iretq_state_t iretq;
+} system_state_t;
 
 #endif

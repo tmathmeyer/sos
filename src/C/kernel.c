@@ -1,7 +1,8 @@
 #include "libk.h"
 #include "multiboot.h"
-#include "cpuio.h"
 #include "interrupts.h"
+
+extern void load_idt(void);
 
 void error(char *err, char errno) {
     kprintf("%4fs = %4fc\n", err, errno);
@@ -35,13 +36,18 @@ void print_elf_and_mmap(struct multiboot_header *multiboot_info) {
 
 
 int kmain(struct multiboot_header *multiboot_info) {
-    kio_init();
-    clear_screen();
-    
-    
+	load_idt();
     intel_8259_set_idt_start(32);
-    initialize_keyboard();
+    
+    
+    
 
+	intel_8259_set_irq_mask(I8259_MASK_ALL);
+	intel_8259_enable_irq(1);
+	
+
+	kio_init();
+    clear_screen();
     
     int ERROR = valid_multiboot(multiboot_info);
     if (ERROR) {
@@ -49,4 +55,6 @@ int kmain(struct multiboot_header *multiboot_info) {
         return 1;
     }
     print_elf_and_mmap(multiboot_info);
+	
+	for(;;);
 }

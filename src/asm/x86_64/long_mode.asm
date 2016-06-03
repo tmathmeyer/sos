@@ -1,20 +1,23 @@
 global long_mode
 global load_idt
-global kernel_segment
-global keyboard_interrupt_handler
 
 extern handle_cpu_exception
 extern handle_irq
 extern handle_syscall
+extern kmain
 
 section .text
 bits 64
 long_mode:
-	extern kmain
 	call kmain
     mov rax, 0x2f592f412f4b2f4f
     mov qword [0xb8000], rax
     hlt
+
+load_idt:
+	lidt [idt_hdr]
+	sti
+	ret
 
 
 int_no:
@@ -205,7 +208,7 @@ software_interrupt:
 
 interrupt:
   PUSHA
-
+  
   ; handle_interrupt(code, state)
   mov qword rdi, rsp
   mov rsi, [int_no]
