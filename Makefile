@@ -26,10 +26,10 @@ clean:
 	@rm -fr build
 
 qemu-debug: $(iso)
-	@qemu-system-x86_64 -d int -no-reboot -cdrom $(iso)
+	@qemu-system-x86_64 -m 265M -d int -no-reboot -cdrom $(iso)
 
 qemu: $(iso)
-	@qemu-system-x86_64 -cdrom $(iso)
+	@qemu-system-x86_64 -m 256M -cdrom $(iso)
 
 iso: $(iso)
 

@@ -25,8 +25,11 @@ page_table_t sub_table_address(page_table_t table, uint64_t at_index) {
         table_address <<= 9;
         table_address |= (at_index << 12);
         return (page_table_t)table_address;
-    }
-    return (page_table_t)0;
+    } else if (table[at_index].huge_page) {
+		kprintf("looking at page table : %43x\n", table);
+		WARN("uh oh you hit a big page!");
+	}
+    return (page_table_t)-1;
 }
 
 uint64_t p4_index(page_t page) {
@@ -46,16 +49,33 @@ uint64_t p1_index(page_t page) {
 }
 
 physical_address translate_address(virtual_address _virt) {
-    page_t virt = containing_address((uint64_t)_virt);
     uint64_t offset = ((uint64_t)_virt) % PAGE_SIZE;
+    page_t virt = containing_address((uint64_t)_virt);
 
     page_table_t p3 = sub_table_address(((page_table_t)PAGE_TABLE4), p4_index(virt));
+    kprintf("p4_index = %47x\n", p4_index(virt));
+	kprintf("p3 = %47x\n", p3);
     if (!p3) return 0;
 
     page_table_t p2 = sub_table_address(p3, p3_index(virt));
+	kprintf("p3_index = %47x\n", p3_index(virt));
+	kprintf("p2 = %47x\n", p2);
     if (!p2) return 0;
     
     page_table_t p1 = sub_table_address(p2, p2_index(virt));
+	if (p1 == -1) {
+        page_entry_t p3_entry = p3[p3_index(virt)];
+        if (p3_entry.present) {
+            void *start_frame = ((uint64_t)(((page_entry_t *)p3) + p3_index(virt))) & 0x000ffffffffff000;
+            if (p3_entry.huge_page) {
+                ERROR("of poppycock");
+            }
+        }
+
+		WARN("uh oh you hit a big page!");
+    }
+	kprintf("p2_index = %47x\n", p2_index(virt));
+	kprintf("p1 = %47x\n", p1);
     if (!p1) return 0;
     
     page_entry_t _frame = p1[p1_index(virt)];
