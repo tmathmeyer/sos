@@ -11,7 +11,7 @@ void error_stack_dump(char *msg, char *file, uint32_t line_no) {
 }
 
 void warn_msg(char *msg, char *file, uint32_t line_no) {
-    kprintf("%6fs%6fs\n%6fs%6fs%6fi\n", "WARNING: ", msg, file, ": ", line_no);
+    kprintf("%6fs%6fs%6fi%6fs%6fs\n", file, "(", line_no, ") WARN: ", msg);
 }
 
 void print_memory_area(struct memory_area *area) {
@@ -60,14 +60,16 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
-    
+#ifdef MM_KERNEL
+#include "../C_testing/translation_testing.c"
+#endif
 
-    kprintf("%5bs%5bx\n", "translate(0)    = ", translate_address(0));
-    kprintf("%5bs%5bx\n", "translate(4096) = ", translate_address(4096));
-    kprintf("%5bs%5bx\n", "translate(0)    = ", translate_address(0));
+}
 
-	//kprintf("Some = %3fx\n", translate_address(0x301000));
-	//kprintf("Some = %3fx\n", translate_address(0));
+
+void divide_by_zero_handler() {
+    kprintf("CAUGHT DIVISION ERROR!\n");
+    for(;;);
 }
 
 
@@ -81,6 +83,14 @@ int kmain(struct multiboot_header *multiboot_info) {
         return 1;
     }
     enable_kernel_paging(multiboot_info);
+    
+    struct opts *options = set_handler(0, (uint64_t)&divide_by_zero_handler);
+    kprintf("%47x\n", options->must_be_one);
+    load_IDT();
+
+    int i = 4/0;
+
+
 
     for(;;);
 }

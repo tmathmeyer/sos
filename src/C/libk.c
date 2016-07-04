@@ -35,3 +35,11 @@ void *page_frame_copy(void *src, size_t spf, void *dest, size_t dpf, size_t byte
 void wait(void) {
     for(int i=0;i<1000000;i++);
 }
+
+void *memcpy(void *_dest, void *_src, size_t bytes) {
+    char *dest = (char *)_dest;
+    char *src = (char *)_src;
+    while(bytes --> 0) {
+        *dest++ = *src++;
+    }
+}

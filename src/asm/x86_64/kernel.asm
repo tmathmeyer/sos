@@ -14,12 +14,6 @@ write_port:
     out dx, al
     ret
 
-load_idt:
-    mov edx, [esp + 4]
-    lidt [edx]
-    sti
-    ret
-
 video_mode:
     mov ah, 0x00
     mov al, 0x13

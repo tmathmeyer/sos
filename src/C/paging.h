@@ -69,7 +69,7 @@ uint64_t containing_address(uint64_t addr);
 void unmap_page(page_t, frame_allocator *);
 uint64_t starting_address(uint64_t page_frame);
 page_table_t referenced_table(page_entry_t entry);
-void map_page(page_t, uint8_t, frame_allocator *);
+frame_t map_page(page_t, uint8_t, frame_allocator *);
 physical_address translate_address(virtual_address);
 void identity_map(frame_t, uint8_t, frame_allocator *);
 void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);

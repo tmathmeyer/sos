@@ -19,17 +19,17 @@ page_table_t referenced_table(page_entry_t entry) {
     return 0;
 }
 
-page_table_t sub_table_address(page_table_t table, uint64_t at_index) {
+page_table_t sub_table_address(page_table_t table, uint64_t at_index, uint8_t *huge) {
     if (table[at_index].present && !table[at_index].huge_page) {
         uint64_t table_address = (uint64_t)table;
         table_address <<= 9;
         table_address |= (at_index << 12);
+        *huge = 0;
         return (page_table_t)table_address;
     } else if (table[at_index].huge_page) {
-		kprintf("looking at page table : %43x\n", table);
-		WARN("uh oh you hit a big page!");
+        *huge = 1;
 	}
-    return (page_table_t)-1;
+    return 0;
 }
 
 uint64_t p4_index(page_t page) {
@@ -48,41 +48,52 @@ uint64_t p1_index(page_t page) {
     return (((uint64_t)page)>>0) & 0777;
 }
 
-physical_address translate_address(virtual_address _virt) {
-    uint64_t offset = ((uint64_t)_virt) % PAGE_SIZE;
-    page_t virt = containing_address((uint64_t)_virt);
+physical_address translate_page(page_t virt);
+physical_address translate_address(virtual_address virt) {
+    uint64_t offset = ((uint64_t)virt) % PAGE_SIZE;
+    frame_t frame = translate_page(containing_address((uint64_t)virt));
+    return frame*PAGE_SIZE + offset;
+}
 
-    page_table_t p3 = sub_table_address(((page_table_t)PAGE_TABLE4), p4_index(virt));
-    kprintf("p4_index = %47x\n", p4_index(virt));
-	kprintf("p3 = %47x\n", p3);
+#define DDDB 0
+physical_address translate_page(page_t virt) {
+    uint8_t huge_page = 0;
+
+    page_table_t p3 = sub_table_address(((page_table_t)PAGE_TABLE4), p4_index(virt), &huge_page);
+    if (DDDB) kprintf("p4_index = %47x\n", p4_index(virt));
+	if (DDDB) kprintf("p3 = %47x\n", p3);
     if (!p3) return 0;
 
-    page_table_t p2 = sub_table_address(p3, p3_index(virt));
-	kprintf("p3_index = %47x\n", p3_index(virt));
-	kprintf("p2 = %47x\n", p2);
+    page_table_t p2 = sub_table_address(p3, p3_index(virt), &huge_page);
+	if (DDDB) kprintf("p3_index = %47x\n", p3_index(virt));
+	if (DDDB) kprintf("p2 = %47x\n", p2);
+    if (huge_page) {
+        ERROR("1GB HUGE PAGE");
+        return 0;
+    }
     if (!p2) return 0;
     
-    page_table_t p1 = sub_table_address(p2, p2_index(virt));
-	if (p1 == -1) {
-        page_entry_t p3_entry = p3[p3_index(virt)];
-        if (p3_entry.present) {
-            void *start_frame = ((uint64_t)(((page_entry_t *)p3) + p3_index(virt))) & 0x000ffffffffff000;
-            if (p3_entry.huge_page) {
-                ERROR("of poppycock");
-            }
+    page_table_t p1 = sub_table_address(p2, p2_index(virt), &huge_page);
+	if (DDDB) kprintf("p2_index = %47x\n", p2_index(virt));
+	if (DDDB) kprintf("p1 = %47x\n", p1);
+    if (huge_page) {
+        page_entry_t _frame = p2[p2_index(virt)];
+        uint64_t __frame = _frame.packed;
+        frame_t frame = containing_address(__frame & 0x000ffffffffff000);
+        if (frame % PAGE_ENTRIES == 0) {
+            frame += p1_index(virt);
+            return frame;
+        } else {
+            ERROR("misaligned 2MB page");
         }
-
-		WARN("uh oh you hit a big page!");
     }
-	kprintf("p2_index = %47x\n", p2_index(virt));
-	kprintf("p1 = %47x\n", p1);
     if (!p1) return 0;
     
     page_entry_t _frame = p1[p1_index(virt)];
     if (!_frame.present)return 0;
 
     uint64_t __frame = _frame.packed;
-    frame_t frame = starting_address(containing_address(__frame & 0x000ffffffffff000)) | offset;
+    frame_t frame = containing_address(__frame & 0x000ffffffffff000);
 }
 
 void set_addr_mask(page_entry_t *entry, uint64_t addr) {
@@ -94,6 +105,7 @@ void set_addr_mask(page_entry_t *entry, uint64_t addr) {
 page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_allocator *alloc) {
     page_entry_t location = in[index];
     page_table_t res;
+    uint8_t huge_page;
     if (!location.present) {
         if (location.huge_page) {
             ERROR("huge pages not allowed!");
@@ -105,10 +117,10 @@ page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_alloca
         set_addr_mask(&in[index], frame);
         in[index].present = 1;
         in[index].writable = 1;
-        res = sub_table_address(in, index);
+        res = sub_table_address(in, index, &huge_page);
         memset(res, 0, sizeof(page_entry_t) * PAGE_ENTRIES);
     }
-    res = sub_table_address(in, index);
+    res = sub_table_address(in, index, &huge_page);
     return res;
 }
 
@@ -122,23 +134,24 @@ void identity_map(frame_t frame, uint8_t flags, frame_allocator *alloc) {
 
 void unmap_page(page_t page, frame_allocator *alloc) {
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
+    uint8_t huge_page;
     if (!p4[p4_index(page)].present) {
         WARN("cannot unmap frame as it is not present");
         return;
     }
-    page_table_t p3 = sub_table_address(p4, p4_index(page));
+    page_table_t p3 = sub_table_address(p4, p4_index(page), &huge_page);
 
     if (!p3[p3_index(page)].present) {
         WARN("cannot unmap frame as it is not present");
         return;
     }
-    page_table_t p2 = sub_table_address(p3, p3_index(page));
+    page_table_t p2 = sub_table_address(p3, p3_index(page), &huge_page);
 
     if (!p2[p2_index(page)].present) {
         WARN("cannot unmap frame as it is not present");
         return;
     }
-    page_table_t p1 = sub_table_address(p2, p2_index(page));
+    page_table_t p1 = sub_table_address(p2, p2_index(page), &huge_page);
 
     if (!p1[p1_index(page)].present) {
         WARN("cannot unmap frame as it is not present");
@@ -149,12 +162,13 @@ void unmap_page(page_t page, frame_allocator *alloc) {
 }
 
 
-void map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
+frame_t map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
     frame_t frame = allocate_frame(alloc);
     if (!frame) {
         ERROR("no frames availible");
     }
     map_page_to_frame(page, frame, flags, alloc);
+    return frame;
 }
 
 void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocator *alloc) {
@@ -166,8 +180,10 @@ void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocato
     if (p1[p1_index(page)].present) {
         ERROR("cannot remap a present page to new frame!");
     }
+    WARN("not setting provided flags: setting present and writable instead!");
     set_addr_mask(&p1[p1_index(page)], frame);
     p1[p1_index(page)].present = 1;
+    p1[p1_index(page)].writable = 1;
 }
 
 
@@ -216,11 +232,10 @@ repeat:
     goto repeat;
 }
 
-
 frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
-                                                              physical_address ke,
-                                                              physical_address ms,
-                                                                physical_address me) {
+        physical_address ke,
+        physical_address ms,
+        physical_address me) {
     frame_allocator res = {
         .current_frame_index = 0,
         .area = 0,
