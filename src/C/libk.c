@@ -33,7 +33,7 @@ void *page_frame_copy(void *src, size_t spf, void *dest, size_t dpf, size_t byte
 }
 
 void wait(void) {
-    for(int i=0;i<1000000;i++);
+    for(int i=0;i<100000000;i++);
 }
 
 void *memcpy(void *_dest, void *_src, size_t bytes) {

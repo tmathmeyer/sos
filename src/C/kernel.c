@@ -81,6 +81,10 @@ int kmain(struct multiboot_header *multiboot_info) {
     
     load_IDT();
 
+    wait();
+    wait();
+    wait();
+
     int i = 4/0;
 
 

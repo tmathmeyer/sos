@@ -30,9 +30,9 @@ typedef struct {
 
 
 idt_entry_t create_empty();
-idt_entry_t create(uint16_t, size_t);
+idt_entry_t create(uint16_t, uint64_t);
 uint16_t cs();
-struct opts *set_handler(uint8_t loc, size_t fn_ptr);
+struct opts *set_handler(uint8_t loc, uint64_t fn_ptr);
 void load_IDT();
 
 #endif
