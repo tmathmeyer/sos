@@ -4,13 +4,11 @@
 #include "ktype.h"
 
 struct opts {
-    uint8_t ist_index   : 3;
-    uint8_t reserved    : 5;
-    uint8_t int_or_trap : 1;
-    uint8_t must_be_one : 3;
-    uint8_t must_be_zro : 1;
-    uint8_t privelage_l : 2;
-    uint8_t present     : 1;
+    uint8_t ZEROS     : 8;
+    uint8_t gate_type : 4;
+    uint8_t ZERO      : 1;
+    uint8_t DPL       : 3;
+    uint8_t present   : 1;
 }__attribute__((packed));
 
 typedef struct idt_entry {
@@ -19,15 +17,11 @@ typedef struct idt_entry {
     struct opts opts;
     uint16_t ptr_mid;
     uint32_t ptr_high;
-    uint32_t _zero;
+
+    uint8_t  _1_reserved : 8;
+    uint8_t  _type       : 5;
+    uint32_t _2_reserved : 19;
 }__attribute__((packed)) idt_entry_t;
-
-typedef struct {
-    uint16_t max_byte;
-    uint64_t virt_start;
-}__attribute__((packed)) descriptor_table_t;
-
-
 
 idt_entry_t create_empty();
 idt_entry_t create(uint16_t, uint64_t);
