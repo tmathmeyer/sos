@@ -7,7 +7,7 @@ struct opts {
     uint8_t ZEROS     : 8;
     uint8_t gate_type : 4;
     uint8_t ZERO      : 1;
-    uint8_t DPL       : 3;
+    uint8_t DPL       : 2;
     uint8_t present   : 1;
 }__attribute__((packed));
 

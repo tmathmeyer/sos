@@ -16,3 +16,4 @@ long_mode:
 
 divide_by_zero_handler:
     call _divide_by_zero_handler
+    iretq
