@@ -67,11 +67,6 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
 }
 
 
-void divide_by_zero_handler() {
-    kprintf("CAUGHT DIVISION ERROR!\n");
-    for(;;);
-}
-
 
 int kmain(struct multiboot_header *multiboot_info) {
     kio_init();
@@ -84,13 +79,12 @@ int kmain(struct multiboot_header *multiboot_info) {
     }
     enable_kernel_paging(multiboot_info);
     
-    struct opts *options = set_handler(0, (uint64_t)&divide_by_zero_handler);
-    kprintf("%47x\n", options->must_be_one);
     load_IDT();
 
     int i = 4/0;
 
 
-
-    for(;;);
+    for(;;) {
+        __asm__("hlt");
+    }
 }
