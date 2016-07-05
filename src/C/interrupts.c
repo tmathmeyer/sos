@@ -2,27 +2,39 @@
 #include "interrupts.h"
 #include "libk.h"
 
-#define INTERRUPTS 48
+#define INTERRUPTS 256
+#define HANDLE(i) do { \
+    extern void interrupt_handler_##i(); \
+    set_handler(0x##i, (uint64_t)interrupt_handler_##i); \
+} while(0)
 
-extern void divide_by_zero_handler();
+#define INT(name, num) void _interrupt_handler_##num()
+
 idt_entry_t IDT[INTERRUPTS];
 
-static inline void _load_IDT(void* base, uint16_t size) {
-    // This function works in 32 and 64bit mode
-    struct {
-        uint16_t length;
-        void*    base;
-    } __attribute__((packed)) IDTR = { size, base };
-    kprintf("%4fs%4fx\n", "LIDT = ", &IDT);
-    kprintf("%4fs%4fi\n", "CS = ", cs());
-    asm ( "lidt %0" : : "m"(IDTR) );  // let the compiler choose an addressing mode
-}
 
-void _divide_by_zero_handler() {
-    int i;
-    kprintf("stack is at = %43x\n", &i);
+INT("divide by zero", 00) {
+    int j;
+    kprintf("divide by zero error\n");
+    kprintf("stack is at: %f3x\n", &j);
     return;
 }
+
+INT("double fault", 08) {
+    kprintf("%3fs\n", "caught a double fault!\n");
+    while(1);
+}
+
+INT("keyboard", 01) {
+    kprintf("keyboard!");
+}
+
+
+
+
+extern char read_port(unsigned short port);
+extern void write_port(unsigned short port, unsigned char data);
+
 
 void IDT_init() {
     for(int i=0;i<INTERRUPTS;i++) {
@@ -30,10 +42,32 @@ void IDT_init() {
     }
 }
 
+static inline void _load_IDT(void* base, uint16_t size) {
+    // This function works in 32 and 64bit mode
+    struct {
+        uint16_t length;
+        void*    base;
+    } __attribute__((packed)) IDTR = { size, base };
+    asm ( "lidt %0" : : "m"(IDTR) );  // let the compiler choose an addressing mode
+}
+
 void load_IDT() {
     IDT_init();
-    set_handler(0x00, (uint64_t)&divide_by_zero_handler);
-    set_handler(0x21, (uint64_t)&divide_by_zero_handler);
+    HANDLE(00);
+    HANDLE(08);
+    HANDLE(01);
+
+    write_port(0x20 , 0x11);
+    write_port(0xA0 , 0x11);
+    write_port(0x21 , 0x20);
+    write_port(0xA1 , 0x28);
+    write_port(0x21 , 0x00);
+    write_port(0xA1 , 0x00);
+    write_port(0x21 , 0x01);
+    write_port(0xA1 , 0x01);
+    write_port(0x21 , 0xff);
+    write_port(0xA1 , 0xff);
+
     _load_IDT(IDT, sizeof(IDT)-1);
 }
 

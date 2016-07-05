@@ -61,12 +61,10 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
 #ifdef MM_KERNEL
-#include "../C_testing/translation_testing.c"
+//#include "../C_testing/translation_testing.c"
 #endif
 
 }
-
-
 
 int kmain(struct multiboot_header *multiboot_info) {
     kio_init();
@@ -77,13 +75,13 @@ int kmain(struct multiboot_header *multiboot_info) {
         ERROR("multiboot information invalid");
         return 1;
     }
+
     enable_kernel_paging(multiboot_info);
-    
     load_IDT();
+	int j = 0;
+	kprintf("stack is at: %f3x\n", &j);
 
     int i = 4/0;
-    kprintf("holy shit it didn't crash\n");
-
     for(;;) {
         __asm__("hlt");
     }
