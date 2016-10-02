@@ -80,10 +80,10 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     int j = 0;
     kprintf("stack is at: %f3x\n", &j);
-    j = 4 / 0;
 
-    int K = 0;
-    kprintf("stack is at: %f3x\n", &K);
-
+    kprintf("%e6s\n", "testing divide by 0");
+    kprintf("%e6i\n", 4 / 0);
+    int k = 0;
+    kprintf("stack is at: %f3x *should be 4 less than before\n", &k);
     while(1);
 }

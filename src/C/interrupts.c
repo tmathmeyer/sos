@@ -23,20 +23,17 @@ static inline void outb(unsigned short port, unsigned char data) {
 }
 
 INT("divide by zero", 00) {
-    int j;
-    kprintf("divide by zero error\n");
+    kprintf("%6es divide by zero error\n", "[INT_HANDLER]");
     outb(PIC1, PIC_EOI);
 }
 
 INT("double fault", 08) {
-    int j;
-    kprintf("%3fs\n", "caught a double fault!");
+    kprintf("%6es Double Fault!\n", "[INT_HANDLER]");
     outb(PIC1, PIC_EOI);
 }
 
 INT("triple fault", 0d) {
-    int j;
-    kprintf("%3fs\n", "caught a triple fault!");
+    kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
     while(1);
 }
 
