@@ -12,31 +12,44 @@
 
 idt_entry_t IDT[INTERRUPTS];
 
+static inline unsigned char inb(unsigned short port) {
+    unsigned char ret;
+    asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+static inline void outb(unsigned short port, unsigned char data) {
+    asm volatile("outb %0, %1" :: "a"(data), "Nd"(port));
+}
 
 INT("divide by zero", 00) {
     int j;
     kprintf("divide by zero error\n");
-    kprintf("stack is at: %f3x\n", &j);
-    return;
+    outb(PIC1, PIC_EOI);
 }
 
 INT("double fault", 08) {
-    kprintf("%3fs\n", "caught a double fault!\n");
+    int j;
+    kprintf("%3fs\n", "caught a double fault!");
+    outb(PIC1, PIC_EOI);
+}
+
+INT("triple fault", 0d) {
+    int j;
+    kprintf("%3fs\n", "caught a triple fault!");
     while(1);
 }
 
 INT("keyboard", 01) {
-    kprintf("keyboard!");
+    kprintf("%3fs\n", "keyboard!");
+    outb(PIC1, PIC_EOI);
 }
-
-
-
 
 extern char read_port(unsigned short port);
 extern void write_port(unsigned short port, unsigned char data);
 
 
-void IDT_init() {
+void IDT_set_zero() {
     for(int i=0;i<INTERRUPTS;i++) {
         IDT[i] = create_empty();
     }
@@ -51,22 +64,40 @@ static inline void _load_IDT(void* base, uint16_t size) {
     asm ( "lidt %0" : : "m"(IDTR) );  // let the compiler choose an addressing mode
 }
 
-void load_IDT() {
-    IDT_init();
-    HANDLE(00);
-    HANDLE(08);
-    HANDLE(01);
+void setup_IDT() {
+    IDT_set_zero();
 
-    write_port(0x20 , 0x11);
-    write_port(0xA0 , 0x11);
-    write_port(0x21 , 0x20);
-    write_port(0xA1 , 0x28);
-    write_port(0x21 , 0x00);
-    write_port(0xA1 , 0x00);
-    write_port(0x21 , 0x01);
-    write_port(0xA1 , 0x01);
-    write_port(0x21 , 0xff);
-    write_port(0xA1 , 0xff);
+    // each of these declares an extern function (in ../asm/x86_64/long_mode.asm)
+    // and then calls set_handler with 0x?? with the function pointer of the extern
+    // set_handler puts the pointer info into an IDT struct and then adds it to the
+    // IDT array. at the end of this function, that array is loaded using lidt
+    HANDLE(00);
+    HANDLE(01);
+    HANDLE(08);
+    HANDLE(0d);
+}
+
+
+void load_IDT() {
+    // start initialization
+    outb(PIC1, 0x11);
+    outb(PIC2, 0x11);
+
+    // set IRQ base numbers for each PIC
+    outb(PIC1_DATA, IRQ_BASE);
+    outb(PIC2_DATA, IRQ_BASE+8);
+
+    // use IRQ number 2 to relay IRQs from the slave PIC
+    outb(PIC1_DATA, 0x04);
+    outb(PIC2_DATA, 0x02);
+
+    // finish initialization
+    outb(PIC1_DATA, 0x01);
+    outb(PIC2_DATA, 0x01);
+
+    // mask all IRQs
+    outb(PIC1_DATA, 0xff);
+    outb(PIC2_DATA, 0xff);
 
     _load_IDT(IDT, sizeof(IDT)-1);
 }
@@ -107,4 +138,3 @@ inline uint16_t cs(void) {
     return val;
 }
 
-//intel 8259 support later!

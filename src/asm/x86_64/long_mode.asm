@@ -26,6 +26,7 @@ long_mode:
 interrupt_handler 00
 interrupt_handler 01
 interrupt_handler 08
+interrupt_handler 0d
 
 read_port:
 mov edx, [esp + 4]

@@ -59,11 +59,6 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
 
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
-
-#ifdef MM_KERNEL
-//#include "../C_testing/translation_testing.c"
-#endif
-
 }
 
 int kmain(struct multiboot_header *multiboot_info) {
@@ -77,12 +72,18 @@ int kmain(struct multiboot_header *multiboot_info) {
     }
 
     enable_kernel_paging(multiboot_info);
-    load_IDT();
-	int j = 0;
-	kprintf("stack is at: %f3x\n", &j);
 
-    int i = 4/0;
-    for(;;) {
-        __asm__("hlt");
-    }
+
+    setup_IDT();
+    load_IDT();
+
+
+    int j = 0;
+    kprintf("stack is at: %f3x\n", &j);
+    j = 4 / 0;
+
+    int K = 0;
+    kprintf("stack is at: %f3x\n", &K);
+
+    while(1);
 }
