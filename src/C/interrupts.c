@@ -1,6 +1,7 @@
 #include "ktype.h"
 #include "interrupts.h"
 #include "libk.h"
+#include "kshell.h"
 
 #define INTERRUPTS 256
 #define HANDLE(i) do { \
@@ -37,14 +38,16 @@ INT("triple fault", 0d) {
     while(1);
 }
 
-INT("keyboard", 01) {
-    kprintf("%3fs\n", "keyboard!");
+INT("keyboard", 21) {
+    unsigned char status = inb(KEYBOARD_STATUS_PORT);
+    if (status & 0x01) {
+        unsigned char keycode = inb(KEYBOARD_DATA_PORT);
+        kshell(keycode);
+    }
     outb(PIC1, PIC_EOI);
+    outb(PIC2, PIC_EOI);
+    return;
 }
-
-extern char read_port(unsigned short port);
-extern void write_port(unsigned short port, unsigned char data);
-
 
 void IDT_set_zero() {
     for(int i=0;i<INTERRUPTS;i++) {
@@ -58,7 +61,8 @@ static inline void _load_IDT(void* base, uint16_t size) {
         uint16_t length;
         void*    base;
     } __attribute__((packed)) IDTR = { size, base };
-    asm ( "lidt %0" : : "m"(IDTR) );  // let the compiler choose an addressing mode
+    asm("lidt %0" : : "m"(IDTR));  // let the compiler choose an addressing mode
+    asm("sti");
 }
 
 void setup_IDT() {
@@ -69,9 +73,9 @@ void setup_IDT() {
     // set_handler puts the pointer info into an IDT struct and then adds it to the
     // IDT array. at the end of this function, that array is loaded using lidt
     HANDLE(00);
-    HANDLE(01);
     HANDLE(08);
     HANDLE(0d);
+    HANDLE(21);
 }
 
 
@@ -93,7 +97,7 @@ void load_IDT() {
     outb(PIC2_DATA, 0x01);
 
     // mask all IRQs
-    outb(PIC1_DATA, 0xff);
+    outb(PIC1_DATA, 0xfd);
     outb(PIC2_DATA, 0xff);
 
     _load_IDT(IDT, sizeof(IDT)-1);

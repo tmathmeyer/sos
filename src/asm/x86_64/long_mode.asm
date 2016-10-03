@@ -24,7 +24,7 @@ long_mode:
 %endmacro
 
 interrupt_handler 00
-interrupt_handler 01
+interrupt_handler 21
 interrupt_handler 08
 interrupt_handler 0d
 
