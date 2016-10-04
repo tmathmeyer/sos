@@ -115,6 +115,12 @@ void run_cmd(char *run) {
     } else if (!strncmp(run, "frames 0x", 9)) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);
+    } else if (!strncmp(run, "help", 5)) {
+        kprintf("SOS commands:\n");
+        kprintf("  page [0xdeadbeef]:   display page table info for a virtual address\n");
+        kprintf("  stack:               get the stack address\n");
+        kprintf("  frames [0xdeadbeef]: print information for the frame allocation table\n");
+        kprintf("  help:                print this information\n");
     } else {
         kprintf("INVALID COMMAND\n");
     }
