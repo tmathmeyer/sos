@@ -59,6 +59,8 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
 
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
+
+    vpage_allocator(&falloc);
 }
 
 int kmain(struct multiboot_header *multiboot_info) {
@@ -73,10 +75,8 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     enable_kernel_paging(multiboot_info);
 
-
+    kprintf("%04s", "SOS$ ");
     setup_IDT();
     load_IDT();
-
-    
     while(1) __asm__("hlt");
 }

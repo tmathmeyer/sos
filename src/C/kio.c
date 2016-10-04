@@ -1,13 +1,39 @@
 #include "libk.h"
+#include "kio.h"
 
+char hexr(char c);
 char *VGA = (char *)0xb8000;
 uint8_t X;
 uint8_t Y;
 
+inline uint16_t cs(void) {
+    uint16_t val;
+    asm volatile ( "mov %%cs, %0" : "=r"(val) );
+    return val;
+}
 
+int strncmp(char *a, char *b, size_t len) {
+    while(len-- && *a && *b) {
+        if (*a != *b) {
+            return *a - *b;
+        }
+        b++;
+        a++;
+    }
+    if (len != -1) {
+        return *a-*b;
+    }
+    return 0;
+}
 
-static inline void outb(unsigned short port, unsigned char val){
-    asm volatile ( "outb %0, %1" : : "a"(val), "Nd"(port) );
+uint64_t hex2int(char *x) {
+    uint64_t res = 0;
+    while(*x) {
+        res *= 0x10;
+        res += hexr(*x);
+        x++;
+    }
+    return res;
 }
 
 void update_cursor(){
@@ -77,6 +103,20 @@ char hexr(char c) {
     }
 }
 
+uint32_t backspace() {
+    if (X == 0) {
+        X=COLS;
+        Y--;
+    } else {
+        X--;
+    }
+    uint32_t l = X + Y*COLS;
+    l *= VIDB;
+    VGA[l++] = ' ';
+    VGA[l++] = 0x03;
+    return 1;
+}
+
 uint32_t write_char(char str, uint8_t color) {
     uint32_t l = X + Y*COLS;
     l *= VIDB;
@@ -92,6 +132,10 @@ uint32_t write_hex(uint64_t a, uint8_t color) {
     uint8_t writing = 0;
     write_char('0', color);
     write_char('x', color);
+    if (a==0) {
+        write_char('0', color);
+        return 3;
+    }
 
     char *chars = "0123456789ABCDEF";
     uint8_t shift = 64;
@@ -182,6 +226,11 @@ uint32_t _kprintf(int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9
 
                             case 'i':
                                 chars += write_num(*((uint64_t *) arg), color);
+                                break;
+
+                            case 'b':
+                                chars += write_char(*((uint8_t *)arg)?'1':'0', color);
+                                chars++;
                                 break;
                         }
                         arg++;

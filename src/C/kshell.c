@@ -1,55 +1,93 @@
 #include "kshell.h"
 #include "ktype.h"
 #include "libk.h"
+#include "kio.h"
+#include "paging.h"
 
-unsigned char keyboard_map[128] = {
-    0, // null
-    0, // escape
-    '1', '2', '3', '4',
-    '5', '6', '7', '8',
-    '9', '0', '-', '=',
-    0, // backspace
-    0, // tab
-    'q', 'w', 'e', 'r',
-    't', 'y', 'u', 'i',
-    'o', 'p', '[', ']',
-    0,	// ENTER
-    0,  // L-CONTROL
-    'a', 's', 'd', 'f',
-    'g', 'h', 'j', 'k',
-    'l', ';', '\'', '`',
-    0, // L-SHIFT
-    '\\', 'z', 'x', 'c',
-    'v', 'b', 'n', 'm',
-    ',', '.', '/',
-    0, // R-SHIFT
-    '*',
-    0, // L-ALT
-    ' ',
-    0, // CAPS-LOCK
-       // FUNCTION KEYS
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0,
-    0,	// NUM-LOCK
-    0,	// SCROLL-LOCK
-    0,	// HOME-KEY
-    0,	// UP-ARROW
-    0,	// PAGE-UP
-    '-',
-    0,	// LEFT-ARROW
-    0,   // UNKNOWN?!?!?
-    0,	// RIGHT-ARROW
-    '+',
-    0,  // END
-    0,	// DOWN-ARROW
-    0,	// PAGE-DOWN
-    0,	// INSERT
-    0,	// DELETE
-    0, 0, 0, // UNKNOWN
-    0,	// F11
-    0,	// F12
-    0,	// UNKNOWN
+uint8_t keymap[][128] = {
+    {0},
+    {0},
+    {'1', 1, '!'},
+    {'2', 1, '@'},
+    {'3', 1, '#'},
+    {'4', 1, '$'},
+    {'5', 1, '%'},
+    {'6', 1, '^'},
+    {'7', 1, '&'},
+    {'8', 1, '*'},
+    {'9', 1, '('},
+    {'0', 1, ')'},
+    {'-', 1, '_'},
+    {'=', 1, '+'},
+    {0},
+    {0},
+    {'q', 2, 'Q'},
+    {'w', 2, 'W'},
+    {'e', 2, 'E'},
+    {'r', 2, 'R'},
+    {'t', 2, 'T'},
+    {'y', 2, 'Y'},
+    {'u', 2, 'U'},
+    {'i', 2, 'I'},
+    {'o', 2, 'O'},
+    {'p', 2, 'P'},
+    {'[', 1, '{'},
+    {']', 1, '}'},
+    {0},
+    {0},
+    {'a', 2, 'A'},
+    {'s', 2, 'S'},
+    {'d', 2, 'D'},
+    {'f', 2, 'F'},
+    {'g', 2, 'G'},
+    {'h', 2, 'H'},
+    {'j', 2, 'J'},
+    {'k', 2, 'K'},
+    {'l', 2, 'L'},
+    {';', 1, ':'},
+    {'\'', 1, '"'},
+    {'`', 1, '~'},
+    {0},
+    {'\\', 1, '|'},
+    {'z', 2, 'Z'},
+    {'x', 2, 'X'},
+    {'c', 2, 'C'},
+    {'v', 2, 'V'},
+    {'b', 2, 'B'},
+    {'n', 2, 'N'},
+    {'m', 2, 'M'},
+    {',', 1, '<'},
+    {'.', 1, '>'},
+    {'/', 1, '?'},
+    {0},
+    {0},
+    {0},
+    {' ', 0},
+    {0}, // caps lock
+         // function 1-10 keys
+    {0}, {0}, {0}, {0}, {0},
+    {0}, {0}, {0}, {0}, {0},
+    {0}, // num lock
+    {0}, // scroll lock
+    {0}, // home
+    {0}, // up arrow
+    {0}, // page up
+    {'-', 1, '_'},
+    {0}, // left arrow
+    {0}, // unknown?
+    {0}, // right arrow
+    {'=', 1, '='},
+    {0}, // end
+    {0}, // down arrow
+    {0}, // page down
+    {0}, // insert
+    {0}, // delete
+    {0}, // unknown?
+    {0}, // unknown?
+    {0}, // unknown?
+    {0}, // f11
+    {0}, // f12
+    {0}, // unknown
 };
 
 #define KB_NULL    0
@@ -67,12 +105,49 @@ bool alt_mode = false;
 bool ctrl_mode = false;
 bool super_mode = false;
 
-void run_cmd() {
-    
+void run_cmd(char *run) {
+    if (!(strncmp(run, "page 0x", 7))) {
+        uint64_t num = hex2int(run+7);
+        show_page_table_layout_for_address(num);
+    } else if (!strncmp(run, "stack", 6)) {
+        int i;
+        kprintf("The stack address is %03x\n", &i);
+    } else if (!strncmp(run, "frames 0x", 9)) {
+        uint64_t num = hex2int(run+9);
+        print_frame_alloc_table_list_entry(num);
+    } else {
+        kprintf("INVALID COMMAND\n");
+    }
 }
 
 #define CASEMACRO(K) case K: \
     if (up) kprintf("[%03s]\n", #K); break;
+
+
+static inline uint8_t get_char(unsigned char key) {
+    uint8_t *map = keymap[key];
+    uint8_t def = *map;
+    if (!def) { 
+        return 0;
+    }
+    uint8_t affection = map[1];
+    if (affection == 0) {
+        return def;
+    }
+    if (affection == 1 && shift_mode) {
+        return map[2];
+    }
+    if (affection == 2 && shift_mode && !caps_mode) {
+        return map[2];
+    }
+    if (affection == 2 && !shift_mode && caps_mode) {
+        return map[2];
+    }
+    return def;
+}
+
+char readline[RDL_SIZE] = {0};
+uint8_t rdl_index = 0;
 
 void kshell(unsigned char key) {
     bool up = false;
@@ -82,11 +157,25 @@ void kshell(unsigned char key) {
     }
     switch(key) {
         CASEMACRO(KB_ESC);
-        CASEMACRO(KB_BACK);
         CASEMACRO(KB_TAB);
-        CASEMACRO(KB_ENTER);
         CASEMACRO(KB_LCTRL);
 
+        case KB_ENTER:
+        if (up) {
+            kprintf("\n");
+            run_cmd(readline);
+            rdl_index = 0;
+            memset(readline, 0, RDL_SIZE);
+            kprintf("%04s", "SOS$ ");
+        }
+        break;
+
+        case KB_BACK:
+        if (up && rdl_index) {
+            backspace();
+            readline[--rdl_index] = 0;
+        }
+        break;
         case KB_LSHIFT:
         case KB_RSHIFT:
             if (up) {
@@ -97,13 +186,13 @@ void kshell(unsigned char key) {
             break;
         default:
         {
-            unsigned char result = keyboard_map[key];
             if (up) {
-                if (result) {
-                    kprintf("%03c", result);
-                } else {
-                    unsigned int x = key;
-                    kprintf("\nkey[%03i]\n", x);
+                if (rdl_index < RDL_SIZE) {
+                    unsigned char result = get_char(key);
+                    if (result) {
+                        kprintf("%03c", result);
+                        readline[rdl_index++] = result;
+                    }
                 }
             }
             break;

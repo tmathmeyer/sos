@@ -12,6 +12,14 @@
 #define KEYBOARD_STATUS_PORT 0x64
 #define KEYBOARD_DATA_PORT 0x60
 
+#define INTERRUPTS 256
+#define HANDLE(i) do { \
+    extern void interrupt_handler_##i(); \
+    set_handler(0x##i, (uint64_t)interrupt_handler_##i); \
+} while(0)
+
+#define INT(name, num) void _interrupt_handler_##num()
+
 struct opts {
     uint8_t ZEROS     : 8;
     uint8_t gate_type : 4;
@@ -34,7 +42,6 @@ typedef struct idt_entry {
 
 idt_entry_t create_empty();
 idt_entry_t create(uint16_t, uint64_t);
-uint16_t cs();
 struct opts *set_handler(uint8_t loc, uint64_t fn_ptr);
 void load_IDT();
 void setup_IDT();

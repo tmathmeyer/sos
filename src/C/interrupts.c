@@ -2,26 +2,10 @@
 #include "interrupts.h"
 #include "libk.h"
 #include "kshell.h"
+#include "kio.h"
 
-#define INTERRUPTS 256
-#define HANDLE(i) do { \
-    extern void interrupt_handler_##i(); \
-    set_handler(0x##i, (uint64_t)interrupt_handler_##i); \
-} while(0)
-
-#define INT(name, num) void _interrupt_handler_##num()
-
+// static memory for the interrupt descriptor table
 idt_entry_t IDT[INTERRUPTS];
-
-static inline unsigned char inb(unsigned short port) {
-    unsigned char ret;
-    asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
-
-static inline void outb(unsigned short port, unsigned char data) {
-    asm volatile("outb %0, %1" :: "a"(data), "Nd"(port));
-}
 
 INT("divide by zero", 00) {
     kprintf("%6es divide by zero error\n", "[INT_HANDLER]");
@@ -48,6 +32,9 @@ INT("keyboard", 21) {
     outb(PIC2, PIC_EOI);
     return;
 }
+
+
+
 
 void IDT_set_zero() {
     for(int i=0;i<INTERRUPTS;i++) {
@@ -132,10 +119,3 @@ idt_entry_t create_empty() {
     memset(&result, 0, sizeof(idt_entry_t));
     return result;
 }
-
-inline uint16_t cs(void) {
-    uint16_t val;
-    asm volatile ( "mov %%cs, %0" : "=r"(val) );
-    return val;
-}
-
