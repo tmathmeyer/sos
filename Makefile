@@ -4,6 +4,7 @@ SRC_DFS := -DMM_KERNEL
 arch ?= x86_64
 kernel := build/kernel.bin
 iso := build/os.iso
+rootfs := rootfs
 
 linker_script := src/asm/$(arch)/linker.ld
 grub_cfg := src/grub/grub.cfg
@@ -29,12 +30,14 @@ qemu-debug: $(iso)
 	@qemu-system-x86_64 -m 265M -d int -no-reboot -cdrom $(iso)
 
 qemu: $(iso)
-	@qemu-system-x86_64 -m 256M -cdrom $(iso)
+	@qemu-system-x86_64 -m 512M -cdrom $(iso)
 
 iso: $(iso)
 
 $(iso): $(kernel) $(grub_cfg)
 	@mkdir -p build/isofiles/boot/grub
+	@mkdir -p build/isofiles/root
+	@cp -R $(rootfs)/* build/isofiles/root/
 	@cp $(kernel) build/isofiles/boot/kernel.bin
 	@cp $(grub_cfg) build/isofiles/boot/grub
 	@grub-mkrescue -d /usr/lib/grub/i386-pc -o $(iso) build/isofiles 2>/dev/null

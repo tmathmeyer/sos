@@ -75,3 +75,18 @@ void itr_elf_sections(struct elf_section_tag *est, void (*do_with_section)(struc
     }
 }
 
+bounds_t get_large_ram_area(struct memory_map_tag *mmt) {
+    uint64_t mm_start = 0;
+    uint64_t mm_end = 0;
+
+    void set_last_mm(struct memory_area *area) {
+        mm_start = area->base_addr;
+        mm_end = mm_start+area->length;
+    }
+
+    itr_memory_mapped_locations(mmt, set_last_mm);
+    bounds_t result;
+    result.start = mm_start;
+    result.end = mm_end;
+    return result;
+}

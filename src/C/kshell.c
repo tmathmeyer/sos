@@ -115,6 +115,47 @@ void run_cmd(char *run) {
     } else if (!strncmp(run, "frames 0x", 9)) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);
+    } else if (!strncmp(run, "kalloc", 7)) {
+        page_t p = allocate_page();
+        kprintf("your ident mapped page is %03x\n", starting_address(p));
+    } else if (!strncmp(run, "kmap 0x", 7)) {
+        uint64_t virt = hex2int(run+7);
+        char *next = strfnd(run+7, ' ');
+        if (*next && !strncmp(next, " 0x", 3)) {
+            uint64_t phys = hex2int(next+3);
+            map_page_to_frame(containing_address(virt), containing_address(phys), 0, (void *)0);
+        } else {
+            kprintf("see usage for details\n");
+        }
+    } else if (!strncmp(run, "read 0x", 7)) {
+        char *addr = (char *)hex2int(run+7);
+        int i = 7;
+        for(;run[i];i++) {
+            if (run[i] == ' ') {
+                i++;
+                break;
+            }
+        }
+        if (!strncmp(run+i, "0x", 2)) {
+            uint64_t size = hex2int(run+i+2);
+            for(int j=0;j<size;j++) {
+                kprintf("%07c", addr[j]);
+            }
+            kprintf("\n");
+        }
+    } else if (!strncmp(run, "write 0x", 8)) {
+        char *addr = (char *)hex2int(run+8);
+        kprintf("writing to %07x\n", addr);
+        int i = 8;
+        for(;run[i];i++) {
+            if (run[i] == ' ') {
+                i++;
+                break;
+            }
+        }
+        for(int j=0;run[i];i++,j++) {
+            addr[j] = run[i];
+        }
     } else if (!strncmp(run, "help", 5)) {
         kprintf("SOS commands:\n");
         kprintf("  page [0xdeadbeef]:   display page table info for a virtual address\n");

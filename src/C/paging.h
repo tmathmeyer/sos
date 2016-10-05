@@ -75,9 +75,11 @@ typedef struct FAT_list {
 #define FAT_CHECKSUM(A, B) (FAT_STATUS(A)==FAT_STATUS(B))
 #define FAT_SET_STATUS(ADDR, s) ((ADDR) = FAT_POINTER(ADDR)|(s&0x000000000000000F))
 
+page_t allocate_page();
+frame_t late_allocate_frame();
 void print_frame_alloc_table_list_entry(uint64_t);
 FAT_list_t *vpage_allocator(frame_allocator *fa);
-uint64_t allocate_frame(frame_allocator *);
+frame_t allocate_frame();
 uint64_t containing_address(uint64_t addr);
 void unmap_page(page_t, frame_allocator *);
 uint64_t starting_address(uint64_t page_frame);

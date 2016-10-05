@@ -17,4 +17,5 @@ uint16_t cs();
 int strncmp(char *a, char *b, size_t len);
 uint64_t hex2int(char *x);
 uint32_t backspace();
+char *strfnd(char *, char);
 #endif

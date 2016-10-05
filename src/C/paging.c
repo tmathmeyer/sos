@@ -160,7 +160,12 @@ page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_alloca
         if (location.huge_page) {
             ERROR("huge pages not allowed!");
         }
-        frame_t frame = allocate_frame(alloc);
+        frame_t frame = 0;
+        if (alloc == (void *)0) {
+            frame = late_allocate_frame(alloc);
+        } else {
+            frame = allocate_frame(alloc);
+        }
         if (!frame) {
             ERROR("no frames availible");
         }
@@ -300,12 +305,48 @@ frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
     return res;
 }
 
+FAT_list_t *split_block_at(FAT_list_t *, frame_t);
 FAT_list_t *FAT_HEAD = (void *)0;
 FAT_list_t *FAT_NEXT_ALLOC = (void *)0;
 
+page_t allocate_page() {
+    frame_t f = late_allocate_frame();
+    identity_map(f, 0, (void *)0);
+    return (page_t)f;
+}
+
+frame_t late_allocate_frame() {
+    FAT_list_t *ll = FAT_HEAD;
+    while(ll && FAT_STATUS(ll->next)) {
+        ll = FAT_POINTER(ll->next);
+    }
+    if (ll) {
+        frame_t allocd = ll->start;
+        split_block_at(ll, ll->start);
+        return allocd;
+    }
+    WARN("OUT OF MEMORY");
+    return 0;
+
+}
+
+void assign_address(page_t page) {
+    frame_t f = late_allocate_frame();
+    map_page_to_frame(page, f, 0, (void *)0);
+}
+
 FAT_list_t *FAT_list_alloc() {
+    // TODO allocate a new page when we need one, instead of just writing to random
     memset(FAT_NEXT_ALLOC, 0, sizeof(FAT_list_t));
     FAT_NEXT_ALLOC++;
+    if (((uint64_t)FAT_NEXT_ALLOC)%4096 == 0) {
+        // we are a the boundary of a new page.
+        frame_t frame_for_page = translate_address(FAT_NEXT_ALLOC);
+        if(frame_for_page) {
+            WARN("memory manager cannot verify integrity. kernel may be corrupt");
+        }
+        assign_address(containing_address((uint64_t)FAT_NEXT_ALLOC));
+    }
     return FAT_NEXT_ALLOC-1;
 }
 
@@ -434,6 +475,7 @@ loop:
 }
 
 void _mark_contig_allocated(frame_t start, frame_t end) {
+    kprintf("BETWEEN %07x and %07x\n", start, end);
     FAT_list_t *fat = FAT_HEAD;
 loop:
     if (fat == 0) {
@@ -495,13 +537,15 @@ FAT_list_t *vpage_allocator(frame_allocator *fa) {
     kprintf("frame allocator gave frame with address: %74x\n", starting_address(FAT_frame));
     map_page_to_frame(alloc_housing, FAT_frame, 0, fa);
     FAT_HEAD = FAT_list_alloc();
-    FAT_HEAD->start = 0;
-    FAT_HEAD->end = 0xffffffffffffffff; // TODO actually get max ram
+    bounds_t membounds = get_large_ram_area(fa->mem_info);
+    FAT_HEAD->start = containing_address(membounds.start);
+    FAT_HEAD->end = containing_address(membounds.end);
     FAT_HEAD->next = (void *)(0x00);
     FAT_HEAD->prev = (void *)(0x00);
 
-    _mark_contig_allocated(containing_address(fa->kernel_start), containing_address(fa->kernel_end));
-    _mark_contig_allocated(containing_address(fa->mboot_start), containing_address(fa->mboot_end));
+    _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
+    _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
+    _mark_frame_allocated(FAT_frame);
  
     //_mark_frame_allocated(FAT_HEAD, fr);
     return (FAT_list_t *)0;

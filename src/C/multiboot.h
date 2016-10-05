@@ -38,15 +38,18 @@ struct memory_map_tag {
 };
 
 struct elf_section {
-    uint32_t name;
+    uint32_t _flags;
     uint32_t type;
-    uint64_t flags;
-    uint64_t addr;
-    uint64_t size;
-    uint64_t offset;
-    uint32_t link;
+    uint32_t _addr;
+    uint32_t addr;
+    uint32_t _size;
+    uint32_t offset;
+    uint32_t flags;
+    uint32_t size;
+    uint64_t link;
     uint32_t info;
-    uint64_t addralign;
+    uint32_t alignment;
+    uint64_t name;
     uint64_t entry_size;
 };
 
@@ -59,7 +62,10 @@ struct elf_section_tag {
     struct elf_section first_section;
 };
 
-
+typedef struct {
+    uint64_t start;
+    uint64_t end;
+} bounds_t;
 
 
 
@@ -69,6 +75,7 @@ struct multiboot_tag_iterator get_tag_iterator(struct multiboot_header *);
 void *find_by_type(struct multiboot_header *, unsigned short);
 void itr_memory_mapped_locations(struct memory_map_tag *mmt, void (*do_with_area)(struct memory_area *));
 void itr_elf_sections(struct elf_section_tag *mmt, void (*do_with_area)(struct elf_section *));
+bounds_t get_large_ram_area(struct memory_map_tag *);
 
 
 

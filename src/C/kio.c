@@ -26,9 +26,19 @@ int strncmp(char *a, char *b, size_t len) {
     return 0;
 }
 
+char *strfnd(char *str, char fnd) {
+    while(*str && *str!=fnd) {
+        str++;
+    }
+    if (str) {
+        return str;
+    }
+    return (char *)0;
+}
+
 uint64_t hex2int(char *x) {
     uint64_t res = 0;
-    while(*x) {
+    while(*x && ((*x>='0'&&*x<='9')||(*x>='A'&&*x<='Z')||(*x>='a'&&*x<='z'))) {
         res *= 0x10;
         res += hexr(*x);
         x++;
@@ -128,6 +138,14 @@ uint32_t write_char(char str, uint8_t color) {
     return 1;
 }
 
+uint32_t write_cl_hex(uint64_t a, uint8_t color) {
+    uint8_t b = a;
+    char *chars = "0123456789ABCDEF";
+    write_char(chars[b>>4], color);
+    write_char(chars[b&0xF], color);
+    return 2;
+}
+
 uint32_t write_hex(uint64_t a, uint8_t color) {
     uint8_t writing = 0;
     write_char('0', color);
@@ -150,6 +168,15 @@ uint32_t write_hex(uint64_t a, uint8_t color) {
     return writing+2;
 }
 
+uint32_t write_le_hex(uint64_t a, uint8_t color) {
+    uint32_t res = a;
+    for(int i=0; i<0; i++) {
+        res<<=8;
+        res += (a&0xff);
+        a>>=8;
+    }
+    return write_hex(res, color);
+}
 
 uint32_t write_string(char *str, uint8_t color) {
     uint32_t total = 0;
@@ -222,6 +249,14 @@ uint32_t _kprintf(int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9
 
                             case 'x':
                                 chars += write_hex(*((uint64_t *) arg), color);
+                                break;
+
+                            case 'L':
+                                chars += write_le_hex(*((uint64_t *) arg), color);
+                                break;
+
+                            case 'X':
+                                chars += write_cl_hex(*((uint64_t *) arg), color);
                                 break;
 
                             case 'i':
