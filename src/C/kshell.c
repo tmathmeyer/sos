@@ -123,6 +123,7 @@ void run_cmd(char *run) {
         char *next = strfnd(run+7, ' ');
         if (*next && !strncmp(next, " 0x", 3)) {
             uint64_t phys = hex2int(next+3);
+            kprintf("mapping P%07x to F%07x\n", containing_address(virt), containing_address(phys));
             map_page_to_frame(containing_address(virt), containing_address(phys), 0, (void *)0);
         } else {
             kprintf("see usage for details\n");

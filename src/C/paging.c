@@ -73,21 +73,23 @@ page_table_t show_page_entry(page_table_t table, uint64_t at_index) {
 void show_page_table_layout_for_address(uint64_t address) {
     page_t page = containing_address(address);
     kprintf("  %03x is in page #%03i\n", address, page);
-    uint64_t p4offset = p4_index(page);
-    uint64_t p3offset = p3_index(page);
-    uint64_t p2offset = p2_index(page);
-    uint64_t p1offset = p1_index(page);
+    uint64_t offs[4] = {
+        p1_index(page),
+        p2_index(page),
+        p3_index(page),
+        p4_index(page)
+    };
     kprintf("  The offsets in tables for this address are:\n");
     kprintf("    p4: %03x\n"
             "    p3: %03x\n"
             "    p2: %03x\n"
-            "    p1: %03x\n", p4offset, p3offset, p2offset, p1offset);
+            "    p1: %03x\n", offs[3], offs[2], offs[1], offs[0]);
     kprintf("entry cascade: W U WTC DiC A D H G address           NeX\n");
     int _page = 4;
     page_table_t next = (page_table_t)PAGE_TABLE4;
     while(next && _page) {
         kprintf("  (%03i)", _page--);
-        next = show_page_entry(next, p4offset);
+        next = show_page_entry(next, offs[page]);
     }
     kprintf("the physical address associated with this virtual address is\n");
     kprintf("%03x\n", translate_address((void *)address));
@@ -227,20 +229,33 @@ frame_t map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
 }
 
 void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocator *alloc) {
+    if (translate_page(page) == frame) {
+        return;
+        //TODO set flags
+    }
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
     page_table_t p3 = create_if_nonexistant(p4, p4_index(page), alloc);
     page_table_t p2 = create_if_nonexistant(p3, p3_index(page), alloc);
     page_table_t p1 = create_if_nonexistant(p2, p2_index(page), alloc);
-
-    if (p1[p1_index(page)].present) {
-        ERROR("cannot remap a present page to new frame!");
-    }
     WARN("cant set flags, will set pres & writable.");
-    set_addr_mask(&p1[p1_index(page)], frame);
-    p1[p1_index(page)].present = 1;
-    p1[p1_index(page)].writable = 1;
-}
+    if (p1) { // p2 is a normal page table, procede normally
+        if (p1[p1_index(page)].present) {
+            WARN("mapping a present page to new frame!");
+        }
+        set_addr_mask(&p1[p1_index(page)], frame);
+        p1[p1_index(page)].present = 1;
+        p1[p1_index(page)].writable = 1;
+    } else { // p2 is a huge page table, so some special stuff
+        page_entry_t _frame = p2[p2_index(page)];
+        if (_frame.present) {
+            WARN("mapping a present page to new frame!");
+        }
+        set_addr_mask(&p2[p2_index(page)], frame&0xfffffffffffffe00);
+        p2[p2_index(page)].present = 1;
+        p2[p2_index(page)].writable = 1;
+    }
 
+}
 
 void discover_next_free_frame(frame_allocator *alloc) {
     struct memory_area *area = 0;

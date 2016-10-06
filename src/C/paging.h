@@ -14,7 +14,8 @@ typedef uint64_t physical_address;
 
 typedef struct {
     union {
-        uint64_t packed; struct { uint8_t present : 1;
+        uint64_t packed;
+        struct { uint8_t present : 1;
             uint8_t writable : 1;
             uint8_t user_accessable : 1;
             uint8_t write_thru_cache : 1;
