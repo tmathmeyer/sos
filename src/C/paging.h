@@ -15,7 +15,8 @@ typedef uint64_t physical_address;
 typedef struct {
     union {
         uint64_t packed;
-        struct { uint8_t present : 1;
+        struct {
+            uint8_t present : 1;
             uint8_t writable : 1;
             uint8_t user_accessable : 1;
             uint8_t write_thru_cache : 1;
@@ -90,6 +91,7 @@ physical_address translate_address(virtual_address);
 void identity_map(frame_t, uint8_t, frame_allocator *);
 void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);
 void show_page_table_layout_for_address(uint64_t address);
+void map_out_huge_pages();
 
 frame_allocator init_allocator(struct memory_map_tag *, physical_address,
                                                         physical_address,

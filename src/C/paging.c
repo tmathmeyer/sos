@@ -21,11 +21,8 @@ page_table_t referenced_table(page_entry_t entry) {
 
 page_table_t sub_table_address(page_table_t table, uint64_t at_index, uint8_t *huge) {
     if (table[at_index].present && !table[at_index].huge_page) {
-        uint64_t table_address = (uint64_t)table;
-        table_address <<= 9;
-        table_address |= (at_index << 12);
         *huge = 0;
-        return (page_table_t)table_address;
+        return referenced_table(table[at_index]);
     } else if (table[at_index].huge_page) {
         *huge = 1;
 	}
@@ -48,25 +45,51 @@ uint64_t p1_index(page_t page) {
     return (((uint64_t)page)>>0) & 0777;
 }
 
+uint64_t get_page_index(uint8_t pagenum, virtual_address va) {
+    page_t VA = containing_address(VA);
+    page_table_t p4 = (page_table_t)PAGE_TABLE4;
+    if (pagenum == 4) {
+        return (uint64_t)p4;
+    }
+    page_table_t p3 = referenced_table(p4[p4_index(VA)]);
+    if (pagenum == 3) {
+        return (uint64_t)p3;
+    }
+    page_table_t p2 = referenced_table(p3[p3_index(VA)]);
+    if (pagenum == 2) {
+        return (uint64_t)p2;
+    }
+    page_table_t p1 = referenced_table(p2[p2_index(VA)]);
+    if (pagenum == 1) {
+        return (uint64_t)p1;
+    }
+    return 0;
+}
+
 page_table_t show_page_entry(page_table_t table, uint64_t at_index) {
     page_entry_t pet = table[at_index];
     uint64_t table_address = 0x0;
-    if (pet.present && !pet.huge_page) {
-        table_address = (uint64_t)table;
-        table_address <<= 9;
-        table_address |= (at_index << 12);
+    if (pet.present) {
+        table_address = (uint64_t)referenced_table(pet);
+        kprintf(
+                table_address ?
+                "       %03x %03x %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n":
+                "       %03x %03x      %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n",
+                table,
+                table_address,
+                pet.writable,
+                pet.user_accessable,
+                pet.write_thru_cache,
+                pet.disable_cache,
+                pet.accessed,
+                pet.dirty,
+                pet.huge_page,
+                pet.global,
+                pet.no_execute);
+        if (pet.huge_page) {
+            table_address = 0x0;
+        }
     }
-    kprintf("          %03b %03b  %03b   %03b  %03b %03b %03b %03b %03x %03b\n",
-            pet.writable,
-            pet.user_accessable,
-            pet.write_thru_cache,
-            pet.disable_cache,
-            pet.accessed,
-            pet.dirty,
-            pet.huge_page,
-            pet.global,
-            table_address,
-            pet.no_execute);
     return (page_table_t)table_address;
 }
 
@@ -84,12 +107,13 @@ void show_page_table_layout_for_address(uint64_t address) {
             "    p3: %03x\n"
             "    p2: %03x\n"
             "    p1: %03x\n", offs[3], offs[2], offs[1], offs[0]);
-    kprintf("entry cascade: W U WTC DiC A D H G address           NeX\n");
+    kprintf("entry cascade: table    next     W U WTC DiC A D H G NeX\n");
     int _page = 4;
-    page_table_t next = (page_table_t)PAGE_TABLE4;
+    page_table_t next = (void *)translate_address((void *)PAGE_TABLE4);
     while(next && _page) {
-        kprintf("  (%03i)", _page--);
-        next = show_page_entry(next, offs[page]);
+        _page--;
+        kprintf("  (%03i[%07i])", _page+1, offs[_page]);
+        next = show_page_entry(next, offs[_page]);
     }
     kprintf("the physical address associated with this virtual address is\n");
     kprintf("%03x\n", translate_address((void *)address));
@@ -350,24 +374,39 @@ void assign_address(page_t page) {
     map_page_to_frame(page, f, 0, (void *)0);
 }
 
+// TODO allocate more space when we need it!
 FAT_list_t *FAT_list_alloc() {
-    // TODO allocate a new page when we need one, instead of just writing to random
-    memset(FAT_NEXT_ALLOC, 0, sizeof(FAT_list_t));
-    FAT_NEXT_ALLOC++;
-    if (((uint64_t)FAT_NEXT_ALLOC)%4096 == 0) {
-        // we are a the boundary of a new page.
+    memset(FAT_NEXT_ALLOC, 0, sizeof(FAT_list_t)); // set the memory we will return to 0
+    FAT_NEXT_ALLOC++; // set the address returned on the NEXT time this function is called
+    if (((uint64_t)(FAT_NEXT_ALLOC+1))%4096 == 0) { // we will need space in two more calls
         frame_t frame_for_page = translate_address(FAT_NEXT_ALLOC);
-        if(frame_for_page) {
-            WARN("memory manager cannot verify integrity. kernel may be corrupt");
+        if(!frame_for_page) { // there is not a frame for this address
+            frame_t new_mem_for_manager = late_allocate_frame();
+            map_page_to_frame(
+                    containing_address((uint64_t)FAT_NEXT_ALLOC), new_mem_for_manager, 0, (void *)0);
         }
-        assign_address(containing_address((uint64_t)FAT_NEXT_ALLOC));
     }
     return FAT_NEXT_ALLOC-1;
 }
 
 void free_FAT(FAT_list_t *fat) {
-    WARN("FREEING NOT IMPLEMENTED");
-    return;
+    // we're going to shift the most recently used into the freed memory space!
+    FAT_list_t *last_allocated = FAT_NEXT_ALLOC - 1;
+
+    // copy memory into freed chunk
+    memcpy(fat, last_allocated, sizeof(FAT_list_t));
+
+    // get the previous and next entries
+    // since fat can never be the only entry, fprev MUST be valid. fnext need not be
+    FAT_list_t *fprev = FAT_POINTER(fat->prev);
+    uint64_t fpstat = FAT_STATUS(fprev->next);
+    fprev->next = (void *)(((uint64_t)fat) | fpstat);
+
+    FAT_list_t *fnext = FAT_POINTER(fat->next);
+    if (fnext) { // could potentially be a null pointer!
+        uint64_t fnstat = FAT_STATUS(fnext->prev);
+        fnext->prev = (void *)(((uint64_t)fat) | fnstat);
+    }
 }
 
 void set_list_head(FAT_list_t *l) {
@@ -490,7 +529,6 @@ loop:
 }
 
 void _mark_contig_allocated(frame_t start, frame_t end) {
-    kprintf("BETWEEN %07x and %07x\n", start, end);
     FAT_list_t *fat = FAT_HEAD;
 loop:
     if (fat == 0) {
@@ -562,6 +600,41 @@ FAT_list_t *vpage_allocator(frame_allocator *fa) {
     _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
     _mark_frame_allocated(FAT_frame);
  
-    //_mark_frame_allocated(FAT_HEAD, fr);
     return (FAT_list_t *)0;
+}
+
+
+void map_out_huge_pages() {
+    page_t _np1 = starting_address(allocate_page());
+    page_entry_t *np1 = (void *)_np1;
+    memset(np1, 0, sizeof(page_entry_t)*512);
+
+    for(int i=0;i<512;i++) {
+        np1[i].present = 1;
+        np1[i].writable = 1;
+        np1[i].user_accessable = 0;
+        np1[i].write_thru_cache = 1;
+        np1[i].disable_cache = 1;
+        np1[i].accessed = 1;
+        np1[i].dirty = 0;
+        np1[i].huge_page = 0;
+        np1[i].global = 0;
+        np1[i].no_execute = 0;
+        np1[i]._addr_mask = i;
+    }
+    page_entry_t nent;
+    nent.packed = 0;
+    nent.present = 1;
+    nent.writable = 1;
+    nent.user_accessable = 0;
+    nent.write_thru_cache = 0;
+    nent.disable_cache = 0;
+    nent.accessed = 1;
+    nent.dirty = 0;
+    nent.huge_page = 0;
+    nent.global = 0;
+    nent.no_execute = 0;
+    nent._addr_mask = containing_address((uint64_t)np1);
+    page_table_t fp2 = (void *)get_page_index(2, (void *)0x100000);
+    fp2[0].packed = nent.packed;
 }

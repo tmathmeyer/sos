@@ -6,11 +6,6 @@ char *VGA = (char *)0xb8000;
 uint8_t X;
 uint8_t Y;
 
-inline uint16_t cs(void) {
-    uint16_t val;
-    asm volatile ( "mov %%cs, %0" : "=r"(val) );
-    return val;
-}
 
 int strncmp(char *a, char *b, size_t len) {
     while(len-- && *a && *b) {

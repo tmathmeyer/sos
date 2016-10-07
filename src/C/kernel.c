@@ -61,6 +61,7 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
     vpage_allocator(&falloc);
+    map_out_huge_pages();
 }
 
 int kmain(struct multiboot_header *multiboot_info) {

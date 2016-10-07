@@ -111,7 +111,9 @@ void run_cmd(char *run) {
         show_page_table_layout_for_address(num);
     } else if (!strncmp(run, "stack", 6)) {
         int i;
+        int j;
         kprintf("The stack address is %03x\n", &i);
+        kprintf("The stack address is %03x\n", &j);
     } else if (!strncmp(run, "frames 0x", 9)) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);

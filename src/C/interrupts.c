@@ -3,6 +3,7 @@
 #include "libk.h"
 #include "kshell.h"
 #include "kio.h"
+#include "registers.h"
 
 // static memory for the interrupt descriptor table
 idt_entry_t IDT[INTERRUPTS];
@@ -19,6 +20,7 @@ INT("double fault", 08) {
 
 INT("triple fault", 0d) {
     kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
+    kprintf("instruction pointer: %05x\n", rip());
     while(1);
 }
 
