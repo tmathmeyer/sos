@@ -76,8 +76,8 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     enable_kernel_paging(multiboot_info);
 
-    kprintf("%04s", "SOS$ ");
     setup_IDT();
     load_IDT();
+    kprintf("%04s", "SOS$ ");
     while(1) __asm__("hlt");
 }

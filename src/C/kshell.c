@@ -118,8 +118,8 @@ void run_cmd(char *run) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);
     } else if (!strncmp(run, "kalloc", 7)) {
-        page_t p = allocate_page();
-        kprintf("your ident mapped page is %03x\n", starting_address(p));
+        void *address = kmalloc(4096);
+        kprintf("your ident mapped page is %03x\n", address);
     } else if (!strncmp(run, "kmap 0x", 7)) {
         uint64_t virt = hex2int(run+7);
         char *next = strfnd(run+7, ' ');

@@ -65,6 +65,7 @@ typedef struct {
 // this serves as storage and sanity checksumming,
 // as the first 16 bits of each must match.
 // bit 0 of each determines if this is a free or allocated block
+// a 0 means unallocated, a 1 means allocated
 typedef struct FAT_list {
     frame_t start;
     frame_t end;
@@ -92,6 +93,9 @@ void identity_map(frame_t, uint8_t, frame_allocator *);
 void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);
 void show_page_table_layout_for_address(uint64_t address);
 void map_out_huge_pages();
+void late_dealloc_frame(frame_t);
+void *kmalloc(uint64_t);
+void kfree(void *);
 
 frame_allocator init_allocator(struct memory_map_tag *, physical_address,
                                                         physical_address,

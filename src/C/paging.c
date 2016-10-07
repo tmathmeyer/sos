@@ -132,7 +132,7 @@ physical_address translate_address(virtual_address virt) {
 }
 
 #define DDDB 0
-physical_address translate_page(page_t virt) {
+frame_t translate_page(page_t virt) {
     uint8_t huge_page = 0;
 
     page_table_t p3 = sub_table_address(((page_table_t)PAGE_TABLE4), p4_index(virt), &huge_page);
@@ -187,7 +187,7 @@ page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_alloca
             ERROR("huge pages not allowed!");
         }
         frame_t frame = 0;
-        if (alloc == (void *)0) {
+        if (alloc == NULL) {
             frame = late_allocate_frame(alloc);
         } else {
             frame = allocate_frame(alloc);
@@ -261,7 +261,6 @@ void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocato
     page_table_t p3 = create_if_nonexistant(p4, p4_index(page), alloc);
     page_table_t p2 = create_if_nonexistant(p3, p3_index(page), alloc);
     page_table_t p1 = create_if_nonexistant(p2, p2_index(page), alloc);
-    WARN("cant set flags, will set pres & writable.");
     if (p1) { // p2 is a normal page table, procede normally
         if (p1[p1_index(page)].present) {
             WARN("mapping a present page to new frame!");
@@ -344,15 +343,41 @@ frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
     return res;
 }
 
-FAT_list_t *split_block_at(FAT_list_t *, frame_t);
-FAT_list_t *FAT_HEAD = (void *)0;
-FAT_list_t *FAT_NEXT_ALLOC = (void *)0;
 
-page_t allocate_page() {
-    frame_t f = late_allocate_frame();
-    identity_map(f, 0, (void *)0);
-    return (page_t)f;
+uint64_t next_addr = 0x50000-1;
+void *kmalloc(uint64_t bytes) {
+    // TODO this is a terrible allocator and will eventually start writing all over the kernel
+    uint64_t frames_needed = bytes / PAGE_SIZE;
+    if (bytes % PAGE_SIZE) {
+        frames_needed += 1;
+    }
+
+    uint64_t return_addr = next_addr;
+    while(frames_needed) {
+        frame_t frame = late_allocate_frame();
+        map_page_to_frame(next_addr, frame, 0, NULL);
+        next_addr--;
+        frames_needed--;
+    }
+    return (void *)(return_addr*PAGE_SIZE);
 }
+
+void kfree(void *v) {
+    //TODO eventually delete all frames!
+    uint64_t V = (uint64_t)v;
+    if (V & PAGE_SIZE) {
+        ERROR("free_address_misaligned");
+    }
+    frame_t f = translate_page(containing_address(V));
+    late_dealloc_frame(f);
+}
+
+
+
+
+FAT_list_t *split_block_at(FAT_list_t *, frame_t);
+FAT_list_t *FAT_HEAD = NULL;
+FAT_list_t *FAT_NEXT_ALLOC = NULL;
 
 frame_t late_allocate_frame() {
     FAT_list_t *ll = FAT_HEAD;
@@ -366,24 +391,35 @@ frame_t late_allocate_frame() {
     }
     WARN("OUT OF MEMORY");
     return 0;
+}
 
+void late_dealloc_frame(frame_t t) {
+    FAT_list_t *ll = FAT_HEAD;
+    while(ll) {
+        if (ll->start <= t && ll->end >= t) {
+            if (FAT_STATUS(ll->next)) {
+                split_block_at(ll, t);
+            }
+        }
+        ll = FAT_POINTER(ll->next);
+    }
 }
 
 void assign_address(page_t page) {
     frame_t f = late_allocate_frame();
-    map_page_to_frame(page, f, 0, (void *)0);
+    map_page_to_frame(page, f, 0, NULL);
 }
 
 // TODO allocate more space when we need it!
 FAT_list_t *FAT_list_alloc() {
     memset(FAT_NEXT_ALLOC, 0, sizeof(FAT_list_t)); // set the memory we will return to 0
     FAT_NEXT_ALLOC++; // set the address returned on the NEXT time this function is called
-    if (((uint64_t)(FAT_NEXT_ALLOC+1))%4096 == 0) { // we will need space in two more calls
+    if (((uint64_t)(FAT_NEXT_ALLOC+1))%PAGE_SIZE == 0) { // we will need space in two more calls
         frame_t frame_for_page = translate_address(FAT_NEXT_ALLOC);
         if(!frame_for_page) { // there is not a frame for this address
             frame_t new_mem_for_manager = late_allocate_frame();
             map_page_to_frame(
-                    containing_address((uint64_t)FAT_NEXT_ALLOC), new_mem_for_manager, 0, (void *)0);
+                    containing_address((uint64_t)FAT_NEXT_ALLOC), new_mem_for_manager, 0, NULL);
         }
     }
     return FAT_NEXT_ALLOC-1;
@@ -442,7 +478,7 @@ FAT_list_t *split_block_at(FAT_list_t *fat, frame_t frame) {
         FAT_list_t *next = FAT_POINTER(fat->next);
         merge_FAT(prev, next);
         free_FAT(fat);
-        return (void *)0;
+        return NULL;
     }
     if (frame == fat->start) {
         // losing from beginning
@@ -593,8 +629,8 @@ FAT_list_t *vpage_allocator(frame_allocator *fa) {
     bounds_t membounds = get_large_ram_area(fa->mem_info);
     FAT_HEAD->start = containing_address(membounds.start);
     FAT_HEAD->end = containing_address(membounds.end);
-    FAT_HEAD->next = (void *)(0x00);
-    FAT_HEAD->prev = (void *)(0x00);
+    FAT_HEAD->next = (void *)(0);
+    FAT_HEAD->prev = (void *)(0);
 
     _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
     _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
@@ -605,7 +641,7 @@ FAT_list_t *vpage_allocator(frame_allocator *fa) {
 
 
 void map_out_huge_pages() {
-    page_t _np1 = starting_address(allocate_page());
+    page_t _np1 = (uint64_t)kmalloc(4096);
     page_entry_t *np1 = (void *)_np1;
     memset(np1, 0, sizeof(page_entry_t)*512);
 
