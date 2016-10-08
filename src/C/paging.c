@@ -254,9 +254,9 @@ frame_t map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
 
 void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocator *alloc) {
     if (translate_page(page) == frame) {
-        return;
-        //TODO set flags
+        return; // no mapping required!
     }
+    //TODO set flags
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
     page_table_t p3 = create_if_nonexistant(p4, p4_index(page), alloc);
     page_table_t p2 = create_if_nonexistant(p3, p3_index(page), alloc);
@@ -639,12 +639,10 @@ FAT_list_t *vpage_allocator(frame_allocator *fa) {
     return (FAT_list_t *)0;
 }
 
-
 void map_out_huge_pages() {
     page_t _np1 = (uint64_t)kmalloc(4096);
     page_entry_t *np1 = (void *)_np1;
     memset(np1, 0, sizeof(page_entry_t)*512);
-
     for(int i=0;i<512;i++) {
         np1[i].present = 1;
         np1[i].writable = 1;

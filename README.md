@@ -19,3 +19,9 @@ Contributions, especially bug fixes, are welcome. Large features that implement 
  - do not use tabs
  - do not use tabs
  - do not change the bochsrc.txt file unless you have a very good reason
+
+ ##TODO list:
+ - better page allocation
+ - filesystem
+ - text editor
+ - compiler
