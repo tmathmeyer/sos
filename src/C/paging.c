@@ -347,7 +347,11 @@ frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
 // everything inside p4[1] (end is start of last frame
 uint64_t kernel_heap_start = 0x8000000000;
 uint64_t kernel_heap_end = 0xfffffff000;
-
+typedef struct {
+    uint8_t last  : 1;
+    uint8_t first : 1;
+    uint32_t size : 30;
+} something_t;
 
 
 
