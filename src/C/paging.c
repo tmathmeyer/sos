@@ -95,7 +95,7 @@ page_table_t show_page_entry(page_table_t table, uint64_t at_index) {
 
 void show_page_table_layout_for_address(uint64_t address) {
     page_t page = containing_address(address);
-    kprintf("  %03x is in page #%03i\n", address, page);
+    kprintf("  %03x is in page #%03x\n", address, page);
     uint64_t offs[4] = {
         p1_index(page),
         p2_index(page),
@@ -188,9 +188,9 @@ page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_alloca
         }
         frame_t frame = 0;
         if (alloc == NULL) {
-            frame = late_allocate_frame(alloc);
+            frame = allocate_frame();
         } else {
-            frame = allocate_frame(alloc);
+            frame = early_allocate_frame(alloc);
         }
         if (!frame) {
             ERROR("no frames availible");
@@ -244,7 +244,7 @@ void unmap_page(page_t page, frame_allocator *alloc) {
 
 
 frame_t map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
-    frame_t frame = allocate_frame(alloc);
+    frame_t frame = early_allocate_frame(alloc);
     if (!frame) {
         ERROR("no frames availible");
     }
@@ -301,7 +301,7 @@ void discover_next_free_frame(frame_allocator *alloc) {
     }
 }
 
-uint64_t allocate_frame(frame_allocator *alloc) {
+uint64_t early_allocate_frame(frame_allocator *alloc) {
     if (alloc->current_frame_index == 0) {
         return 0;
     }
@@ -344,6 +344,17 @@ frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
 }
 
 
+// everything inside p4[1] (end is start of last frame
+uint64_t kernel_heap_start = 0x8000000000;
+uint64_t kernel_heap_end = 0xfffffff000;
+
+
+
+
+
+
+
+
 uint64_t next_addr = 0x50000-1;
 void *kmalloc(uint64_t bytes) {
     // TODO this is a terrible allocator and will eventually start writing all over the kernel
@@ -354,7 +365,7 @@ void *kmalloc(uint64_t bytes) {
 
     uint64_t return_addr = next_addr;
     while(frames_needed) {
-        frame_t frame = late_allocate_frame();
+        frame_t frame = allocate_frame();
         map_page_to_frame(next_addr, frame, 0, NULL);
         next_addr--;
         frames_needed--;
@@ -369,20 +380,31 @@ void kfree(void *v) {
         ERROR("free_address_misaligned");
     }
     frame_t f = translate_page(containing_address(V));
-    late_dealloc_frame(f);
+    free_frame(f);
 }
 
 
 
 
-FAT_list_t *split_block_at(FAT_list_t *, frame_t);
-FAT_list_t *FAT_HEAD = NULL;
-FAT_list_t *FAT_NEXT_ALLOC = NULL;
 
-frame_t late_allocate_frame() {
-    FAT_list_t *ll = FAT_HEAD;
-    while(ll && FAT_STATUS(ll->next)) {
-        ll = FAT_POINTER(ll->next);
+
+
+frame_list_t *split_block_at(frame_list_t *, frame_t);
+
+void assign_address(page_t page) {
+    frame_t f = allocate_frame();
+    map_page_to_frame(page, f, 0, NULL);
+}
+
+frame_list_t *list_head = NULL;
+frame_list_t *list_next = NULL;
+
+
+
+frame_t allocate_frame() {
+    frame_list_t *ll = list_head;
+    while(ll && LIST_STATUS(ll->next)) {
+        ll = LIST_POINTER(ll->next);
     }
     if (ll) {
         frame_t allocd = ll->start;
@@ -393,63 +415,69 @@ frame_t late_allocate_frame() {
     return 0;
 }
 
-void late_dealloc_frame(frame_t t) {
-    FAT_list_t *ll = FAT_HEAD;
+void free_frame(frame_t t) {
+    frame_list_t *ll = list_head;
     while(ll) {
         if (ll->start <= t && ll->end >= t) {
-            if (FAT_STATUS(ll->next)) {
+            if (LIST_STATUS(ll->next)) {
                 split_block_at(ll, t);
             }
         }
-        ll = FAT_POINTER(ll->next);
+        ll = LIST_POINTER(ll->next);
     }
 }
 
-void assign_address(page_t page) {
-    frame_t f = late_allocate_frame();
-    map_page_to_frame(page, f, 0, NULL);
-}
-
-// TODO allocate more space when we need it!
-FAT_list_t *FAT_list_alloc() {
-    memset(FAT_NEXT_ALLOC, 0, sizeof(FAT_list_t)); // set the memory we will return to 0
-    FAT_NEXT_ALLOC++; // set the address returned on the NEXT time this function is called
-    if (((uint64_t)(FAT_NEXT_ALLOC+1))%PAGE_SIZE == 0) { // we will need space in two more calls
-        frame_t frame_for_page = translate_address(FAT_NEXT_ALLOC);
-        if(!frame_for_page) { // there is not a frame for this address
-            frame_t new_mem_for_manager = late_allocate_frame();
-            map_page_to_frame(
-                    containing_address((uint64_t)FAT_NEXT_ALLOC), new_mem_for_manager, 0, NULL);
+frame_list_t *frame_list_alloc() {
+    // we will be returning list_next, so zero it
+    memset(list_next, 0, sizeof(frame_list_t));
+    
+    // set the next address
+    list_next++;
+    
+    // we can only fit 16 list structures per page/frame
+    // when we hit 14, allocate a new structure. it has to be 14
+    // because there is the chance that allocating a new structure
+    // will also require a list allocation, and that could cause an inf loop
+    uint64_t nextframeaddr = (uint64_t)(list_next+1);
+    if (nextframeaddr % PAGE_SIZE == 0) {
+        page_t nextpage = containing_address(nextframeaddr);
+        frame_t is_frame = translate_page(nextpage);
+        
+        // this page is not mapped
+        if (!is_frame) {
+            is_frame = allocate_frame();
+            map_page_to_frame(nextpage, is_frame, 0, NULL);
         }
+        // TODO mark page allocated
     }
-    return FAT_NEXT_ALLOC-1;
+    return list_next-1;
 }
 
-void free_FAT(FAT_list_t *fat) {
+void free_LIST(frame_list_t *fat) {
     // we're going to shift the most recently used into the freed memory space!
-    FAT_list_t *last_allocated = FAT_NEXT_ALLOC - 1;
+    frame_list_t *last_allocated = list_next - 1;
 
     // copy memory into freed chunk
-    memcpy(fat, last_allocated, sizeof(FAT_list_t));
+    memcpy(fat, last_allocated, sizeof(frame_list_t));
 
     // get the previous and next entries
     // since fat can never be the only entry, fprev MUST be valid. fnext need not be
-    FAT_list_t *fprev = FAT_POINTER(fat->prev);
-    uint64_t fpstat = FAT_STATUS(fprev->next);
+    frame_list_t *fprev = LIST_POINTER(fat->prev);
+    uint64_t fpstat = LIST_STATUS(fprev->next);
     fprev->next = (void *)(((uint64_t)fat) | fpstat);
 
-    FAT_list_t *fnext = FAT_POINTER(fat->next);
+    frame_list_t *fnext = LIST_POINTER(fat->next);
     if (fnext) { // could potentially be a null pointer!
-        uint64_t fnstat = FAT_STATUS(fnext->prev);
+        uint64_t fnstat = LIST_STATUS(fnext->prev);
         fnext->prev = (void *)(((uint64_t)fat) | fnstat);
     }
 }
 
-void set_list_head(FAT_list_t *l) {
-    FAT_HEAD = l;
+void set_list_head(frame_list_t *l) {
+    list_head = l;
 }
 
-void merge_FAT(FAT_list_t *A, FAT_list_t *B) {
+void merge_LIST(frame_list_t *A, frame_list_t *B) {
     if (!A || !B) {
         return;
     }
@@ -460,117 +488,117 @@ void merge_FAT(FAT_list_t *A, FAT_list_t *B) {
         return;
     }
     if (!B) {
-        A->next = (void *)(((uint64_t)B)|FAT_STATUS(A->next));
+        A->next = (void *)(((uint64_t)B)|LIST_STATUS(A->next));
         return;
     }
     A->end = B->end;
-    FAT_list_t *next = FAT_POINTER(B->next);
-    next->prev = (void *)(((uint64_t)A)|FAT_STATUS(next->prev));
-    A->next = (void *)(((uint64_t)next)|FAT_STATUS(A->next));
-    free_FAT(B);
+    frame_list_t *next = LIST_POINTER(B->next);
+    next->prev = (void *)(((uint64_t)A)|LIST_STATUS(next->prev));
+    A->next = (void *)(((uint64_t)next)|LIST_STATUS(A->next));
+    free_LIST(B);
 
 }
 
-FAT_list_t *split_block_at(FAT_list_t *fat, frame_t frame) {
+frame_list_t *split_block_at(frame_list_t *fat, frame_t frame) {
     if (fat->start == fat->end) {
-        // there was only one element, this FAT should be destroyed!
-        FAT_list_t *prev = FAT_POINTER(fat->prev);
-        FAT_list_t *next = FAT_POINTER(fat->next);
-        merge_FAT(prev, next);
-        free_FAT(fat);
+        // there was only one element, this LIST should be destroyed!
+        frame_list_t *prev = LIST_POINTER(fat->prev);
+        frame_list_t *next = LIST_POINTER(fat->next);
+        merge_LIST(prev, next);
+        free_LIST(fat);
         return NULL;
     }
     if (frame == fat->start) {
         // losing from beginning
         fat->start++;
-        FAT_list_t *prev = FAT_POINTER(fat->prev);
+        frame_list_t *prev = LIST_POINTER(fat->prev);
         if (prev) { // this is a block that is NOT the first block...
             prev->end++;
             return prev;
         } else {
             // allocate new block at beginning
-            FAT_list_t *newblck = FAT_list_alloc();
+            frame_list_t *newblck = frame_list_alloc();
             newblck->start = frame;
             newblck->end = frame;
-            uint64_t flipstatus = FAT_STATUS(fat->prev)?0:1;
+            uint64_t flipstatus = LIST_STATUS(fat->prev)?0:1;
             newblck->prev = (void *)flipstatus;
             newblck->next = (void *)(((uint64_t)fat) | flipstatus);
-            fat->prev = (void *)(((uint64_t)newblck)|FAT_STATUS(fat->prev));
+            fat->prev = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->prev));
             set_list_head(newblck);
             return newblck;
         }
     } else if (frame == fat->end) {
         // losing from the end
         fat->end--;
-        FAT_list_t *next = FAT_POINTER(fat->next);
+        frame_list_t *next = LIST_POINTER(fat->next);
         if (next) { // we're not the last block!
             next->start--;
         } else {
-            FAT_list_t *newblck = FAT_list_alloc();
+            frame_list_t *newblck = frame_list_alloc();
             newblck->start = frame;
             newblck->end = frame;
-            uint64_t flipstatus = FAT_STATUS(fat->prev)?0:1;
+            uint64_t flipstatus = LIST_STATUS(fat->prev)?0:1;
             newblck->prev = (void *)(((uint64_t)fat) | flipstatus);
             newblck->next = (void *)flipstatus;
-            fat->next = (void *)(((uint64_t)newblck)|FAT_STATUS(fat->next));
+            fat->next = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->next));
         }
         return fat;
     } else {
         // its in the middle of our block :(
 
-        FAT_list_t *newblck = FAT_list_alloc();
-        FAT_list_t *second_half = FAT_list_alloc();
+        frame_list_t *newblck = frame_list_alloc();
+        frame_list_t *second_half = frame_list_alloc();
 
         newblck->start = newblck->end = frame;
-        uint64_t flipstatus = FAT_STATUS(fat->prev)?0:1;
+        uint64_t flipstatus = LIST_STATUS(fat->prev)?0:1;
         newblck->prev = (void *)(((uint64_t)fat)|flipstatus);
         newblck->next = (void *)(((uint64_t)second_half)|flipstatus);
 
         second_half->start = frame+1;
         second_half->end = fat->end;
-        second_half->prev = (void *)(((uint64_t)newblck)|FAT_STATUS(fat->next));
+        second_half->prev = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->next));
         second_half->next = fat->next;
-        FAT_list_t *nnn = FAT_POINTER(fat->next);
+        frame_list_t *nnn = LIST_POINTER(fat->next);
         if (nnn) {
-            nnn->prev = (void *)(((uint64_t)second_half)|FAT_STATUS(nnn->prev));
+            nnn->prev = (void *)(((uint64_t)second_half)|LIST_STATUS(nnn->prev));
         }
-        fat->next = (void *)(((uint64_t)newblck)|FAT_STATUS(fat->next));
+        fat->next = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->next));
         fat->end = frame-1;
         return newblck;
     }
 }
 
 void _mark_frame_allocated(frame_t frame) {
-    FAT_list_t *fat = FAT_HEAD;
+    frame_list_t *fat = list_head;
 loop:
     if (fat == 0) {
         return;
     }
-    if (!(FAT_CHECKSUM(fat->next, fat->prev))) {
+    if (!(LIST_CHECKSUM(fat->next, fat->prev))) {
         WARN("corrupt block");
         return; // corrupt block anyway
     }
 
     if (frame >= fat->start && frame <= fat->end) {
         // block is already allocated
-        if(FAT_STATUS(fat->next)) {
+        if(LIST_STATUS(fat->next)) {
             // do nothing
         } else {
             split_block_at(fat, frame);
         }
         return;
     }
-    fat = FAT_POINTER(fat->next);
+    fat = LIST_POINTER(fat->next);
     goto loop;
 }
 
 void _mark_contig_allocated(frame_t start, frame_t end) {
-    FAT_list_t *fat = FAT_HEAD;
+    frame_list_t *fat = list_head;
 loop:
     if (fat == 0) {
         return;
     }
-    if (!(FAT_CHECKSUM(fat->next, fat->prev))) {
+    if (!(LIST_CHECKSUM(fat->next, fat->prev))) {
         WARN("corrupt block");
         return; // corrupt block anyway
     }
@@ -581,62 +609,62 @@ loop:
             return;
         }
         // block is already allocated
-        if(FAT_STATUS(fat->next)) {
+        if(LIST_STATUS(fat->next)) {
             // do nothing
         } else {
             fat = split_block_at(fat, start);
             fat->end = end;
-            fat = FAT_POINTER(fat->next);
+            fat = LIST_POINTER(fat->next);
             if (fat) {
                 fat->start = end+1;
             }
         }
         return;
     }
-    fat = FAT_POINTER(fat->next);
+    fat = LIST_POINTER(fat->next);
     goto loop;
 }
 
 void print_frame_alloc_table_list_entry(uint64_t entry) {
-    FAT_list_t *st = FAT_HEAD;
+    frame_list_t *st = list_head;
     for(int i=0;i<entry;i++) {
         if (!st) {
-            kprintf("there are only %03i FAT list entries\n", i);
+            kprintf("there are only %03i LIST list entries\n", i);
             return;
         }
-        st = FAT_POINTER(st->next);
+        st = LIST_POINTER(st->next);
     }
     if (!st) {
-        kprintf("there are only %03i FAT list entries\n", entry);
+        kprintf("there are only %03i LIST list entries\n", entry);
         return;
     }
-    kprintf("FAT list entry #%03i (%03x):\n", entry, st);
+    kprintf("LIST list entry #%03i (%03x):\n", entry, st);
     kprintf("  starting frame = %03x\n", st->start);
     kprintf("  ending frame   = %03x\n", st->end);
-    kprintf("  alloc status   = %03s\n", FAT_STATUS(st->next)?"allocated":"free");
-    kprintf("  next entry     = %03x\n", FAT_POINTER(st->next));
-    kprintf("  prev entry     = %03x\n", FAT_POINTER(st->prev));
+    kprintf("  alloc status   = %03s\n", LIST_STATUS(st->next)?"allocated":"free");
+    kprintf("  next entry     = %03x\n", LIST_POINTER(st->next));
+    kprintf("  prev entry     = %03x\n", LIST_POINTER(st->prev));
 }
 
-FAT_list_t *vpage_allocator(frame_allocator *fa) {
-    frame_t FAT_frame = allocate_frame(fa);
+frame_list_t *vpage_allocator(frame_allocator *fa) {
+    frame_t LIST_frame = early_allocate_frame(fa);
     page_t alloc_housing = containing_address(0x500000000);
-    FAT_NEXT_ALLOC = (void *)starting_address(alloc_housing);
+    list_next = (void *)starting_address(alloc_housing);
     // TODO: set the identity mapped page for this address to be READ ONLY!!!! (prevent stack fuckery)
-    kprintf("frame allocator gave frame with address: %74x\n", starting_address(FAT_frame));
-    map_page_to_frame(alloc_housing, FAT_frame, 0, fa);
-    FAT_HEAD = FAT_list_alloc();
+    kprintf("frame allocator gave frame with address: %74x\n", starting_address(LIST_frame));
+    map_page_to_frame(alloc_housing, LIST_frame, 0, fa);
+    list_head = frame_list_alloc();
     bounds_t membounds = get_large_ram_area(fa->mem_info);
-    FAT_HEAD->start = containing_address(membounds.start);
-    FAT_HEAD->end = containing_address(membounds.end);
-    FAT_HEAD->next = (void *)(0);
-    FAT_HEAD->prev = (void *)(0);
+    list_head->start = containing_address(membounds.start);
+    list_head->end = containing_address(membounds.end);
+    list_head->next = (void *)(0);
+    list_head->prev = (void *)(0);
 
     _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
     _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
-    _mark_frame_allocated(FAT_frame);
+    _mark_frame_allocated(LIST_frame);
  
-    return (FAT_list_t *)0;
+    return (frame_list_t *)0;
 }
 
 void map_out_huge_pages() {

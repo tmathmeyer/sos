@@ -10,8 +10,7 @@
 typedef uint64_t page_t;
 typedef uint64_t frame_t;
 typedef void *virtual_address;
-typedef uint64_t physical_address;
-
+typedef uint64_t physical_address; 
 typedef struct {
     union {
         uint64_t packed;
@@ -57,32 +56,37 @@ typedef struct {
 } frame_allocator;
 
 
+// Frame And Page list
 // 256 byte structure!
 // we can fit exactly 16 of these per page
-// because of that, each pointer to a FAT_list
+// because of that, each pointer to a frame_list
 // is aligned such that there are 16 free bytes
 // in both .next and .prev
 // this serves as storage and sanity checksumming,
 // as the first 16 bits of each must match.
 // bit 0 of each determines if this is a free or allocated block
 // a 0 means unallocated, a 1 means allocated
-typedef struct FAT_list {
+typedef struct frame_list {
     frame_t start;
     frame_t end;
-    struct FAT_list *next;
-    struct FAT_list *prev;
-} FAT_list_t;
+    struct frame_list *next;
+    struct frame_list *prev;
+} frame_list_t;
 
-#define FAT_POINTER(ADDR) (FAT_list_t *)(((uint64_t)(ADDR))&0xFFFFFFFFFFFFFFF0)
-#define FAT_STATUS(ADDR) (((uint64_t)(ADDR))&0x000000000000000F)
-#define FAT_CHECKSUM(A, B) (FAT_STATUS(A)==FAT_STATUS(B))
-#define FAT_SET_STATUS(ADDR, s) ((ADDR) = FAT_POINTER(ADDR)|(s&0x000000000000000F))
+
+
+
+
+#define LIST_POINTER(ADDR) (frame_list_t *)(((uint64_t)(ADDR))&0xFFFFFFFFFFFFFFF0)
+#define LIST_STATUS(ADDR) (((uint64_t)(ADDR))&0x000000000000000F)
+#define LIST_CHECKSUM(A, B) (LIST_STATUS(A)==LIST_STATUS(B))
+#define LIST_SET_STATUS(ADDR, s) ((ADDR) = LIST_POINTER(ADDR)|(s&0x000000000000000F))
 
 page_t allocate_page();
-frame_t late_allocate_frame();
-void print_frame_alloc_table_list_entry(uint64_t);
-FAT_list_t *vpage_allocator(frame_allocator *fa);
 frame_t allocate_frame();
+void print_frame_alloc_table_list_entry(uint64_t);
+frame_list_t *vpage_allocator(frame_allocator *fa);
+frame_t early_allocate_frame();
 uint64_t containing_address(uint64_t addr);
 void unmap_page(page_t, frame_allocator *);
 uint64_t starting_address(uint64_t page_frame);
@@ -93,7 +97,7 @@ void identity_map(frame_t, uint8_t, frame_allocator *);
 void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);
 void show_page_table_layout_for_address(uint64_t address);
 void map_out_huge_pages();
-void late_dealloc_frame(frame_t);
+void free_frame(frame_t);
 void *kmalloc(uint64_t);
 void kfree(void *);
 
