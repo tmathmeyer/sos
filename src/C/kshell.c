@@ -3,6 +3,7 @@
 #include "libk.h"
 #include "kio.h"
 #include "paging.h"
+#include "kmalloc.h"
 
 uint8_t keymap[][128] = {
     {0},
@@ -109,17 +110,16 @@ void run_cmd(char *run) {
     if (!(strncmp(run, "page 0x", 7))) {
         uint64_t num = hex2int(run+7);
         show_page_table_layout_for_address(num);
-    } else if (!strncmp(run, "stack", 6)) {
-        int i;
-        int j;
-        kprintf("The stack address is %03x\n", &i);
-        kprintf("The stack address is %03x\n", &j);
     } else if (!strncmp(run, "frames 0x", 9)) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);
-    } else if (!strncmp(run, "kalloc", 7)) {
-        void *address = kmalloc(4096);
+    } else if (!strncmp(run, "kalloc 0x", 9)) {
+        uint64_t memsize = hex2int(run+9);
+        void *address = kmalloc(memsize);
         kprintf("your ident mapped page is %03x\n", address);
+    } else if (!strncmp(run, "kfree 0x", 8)) {
+        uint64_t virt = hex2int(run+8);
+        kfree((void *)virt);
     } else if (!strncmp(run, "kmap 0x", 7)) {
         uint64_t virt = hex2int(run+7);
         char *next = strfnd(run+7, ' ');
@@ -128,43 +128,39 @@ void run_cmd(char *run) {
             kprintf("mapping P%07x to F%07x\n", containing_address(virt), containing_address(phys));
             map_page_to_frame(containing_address(virt), containing_address(phys), 0, (void *)0);
         } else {
-            kprintf("see usage for details\n");
+            kprintf("see %05x for usage\n", "help");
         }
     } else if (!strncmp(run, "read 0x", 7)) {
         char *addr = (char *)hex2int(run+7);
-        int i = 7;
-        for(;run[i];i++) {
-            if (run[i] == ' ') {
-                i++;
-                break;
-            }
-        }
-        if (!strncmp(run+i, "0x", 2)) {
-            uint64_t size = hex2int(run+i+2);
+        char *next = strfnd(run+7, ' ');
+        if (*next && !strncmp(next, " 0x", 3)) {
+            uint64_t size = hex2int(next+3);
             for(int j=0;j<size;j++) {
                 kprintf("%07c", addr[j]);
             }
             kprintf("\n");
+        } else {
+            kprintf("see %05x for usage\n", "help");
         }
     } else if (!strncmp(run, "write 0x", 8)) {
         char *addr = (char *)hex2int(run+8);
         kprintf("writing to %07x\n", addr);
-        int i = 8;
-        for(;run[i];i++) {
-            if (run[i] == ' ') {
-                i++;
-                break;
-            }
+        char *next = strfnd(run+7, ' ');
+        while (next && *next) {
+            *addr++ = *next++;
         }
-        for(int j=0;run[i];i++,j++) {
-            addr[j] = run[i];
-        }
+    } else if (!strncmp(run, "memstatus", 10)) {
+        print_mem();
     } else if (!strncmp(run, "help", 5)) {
-        kprintf("SOS commands:\n");
-        kprintf("  page [0xdeadbeef]:   display page table info for a virtual address\n");
-        kprintf("  stack:               get the stack address\n");
-        kprintf("  frames [0xdeadbeef]: print information for the frame allocation table\n");
-        kprintf("  help:                print this information\n");
+        kprintf("  page   [0xADDR]:      display page table info for a virtual address\n");
+        kprintf("  frames [0xN]:         print information for the frame allocation table\n");
+        kprintf("  kalloc [0xN]:         allocate at least N bytes of virtual memory\n");
+        kprintf("  kfree  [0xADDR]:      free the virtual memory at ADDR\n");
+        kprintf("  kmap   [0xA1 0xA2]:   map virtual addr1 to physical addr2\n");
+        kprintf("  read   [0xADDR 0xN]:  read N bytes from ADDR\n");
+        kprintf("  write  [0xADDR text]: write [text] to ADDR\n");
+        kprintf("  memstatus:            display information about the virtual memory allocator\n");
+        kprintf("  help:                 print this information\n");
     } else {
         kprintf("INVALID COMMAND\n");
     }

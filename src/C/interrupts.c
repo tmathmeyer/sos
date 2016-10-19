@@ -15,12 +15,11 @@ INT("divide by zero", 00) {
 
 INT("double fault", 08) {
     kprintf("%6es Double Fault!\n", "[INT_HANDLER]");
-    outb(PIC1, PIC_EOI);
+    while(1);
 }
 
 INT("triple fault", 0d) {
     kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
-    kprintf("instruction pointer: %05x\n", rip());
     while(1);
 }
 

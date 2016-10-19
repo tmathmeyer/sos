@@ -313,10 +313,8 @@ repeat:
     if (frame > current_area_last_frame) {
         discover_next_free_frame(alloc);
     } else if (frame >= alloc->kernel_start && frame <= alloc->kernel_end) {
-        kprintf("discovered kernel_frame @#%05x\n", frame);
         alloc->current_frame_index = alloc->kernel_end + 1;
     } else if (frame >= alloc->mboot_start && frame <= alloc->mboot_end) {
-        kprintf("discovered multiboot_frame @#%05x\n", frame);
         alloc->current_frame_index = alloc->mboot_end + 1;
     } else {
         alloc->current_frame_index++;
@@ -342,56 +340,6 @@ frame_allocator init_allocator(struct memory_map_tag *info, physical_address ks,
     discover_next_free_frame(&res);
     return res;
 }
-
-
-// everything inside p4[1] (end is start of last frame
-uint64_t kernel_heap_start = 0x8000000000;
-uint64_t kernel_heap_end = 0xfffffff000;
-typedef struct {
-    uint8_t last  : 1;
-    uint8_t first : 1;
-    uint32_t size : 30;
-} something_t;
-
-
-
-
-
-
-
-uint64_t next_addr = 0x50000-1;
-void *kmalloc(uint64_t bytes) {
-    // TODO this is a terrible allocator and will eventually start writing all over the kernel
-    uint64_t frames_needed = bytes / PAGE_SIZE;
-    if (bytes % PAGE_SIZE) {
-        frames_needed += 1;
-    }
-
-    uint64_t return_addr = next_addr;
-    while(frames_needed) {
-        frame_t frame = allocate_frame();
-        map_page_to_frame(next_addr, frame, 0, NULL);
-        next_addr--;
-        frames_needed--;
-    }
-    return (void *)(return_addr*PAGE_SIZE);
-}
-
-void kfree(void *v) {
-    //TODO eventually delete all frames!
-    uint64_t V = (uint64_t)v;
-    if (V & PAGE_SIZE) {
-        ERROR("free_address_misaligned");
-    }
-    frame_t f = translate_page(containing_address(V));
-    free_frame(f);
-}
-
-
-
-
-
-
 
 frame_list_t *split_block_at(frame_list_t *, frame_t);
 
@@ -650,12 +598,10 @@ void print_frame_alloc_table_list_entry(uint64_t entry) {
     kprintf("  prev entry     = %03x\n", LIST_POINTER(st->prev));
 }
 
-frame_list_t *vpage_allocator(frame_allocator *fa) {
+frame_list_t *vpage_allocator(frame_allocator *fa, frame_t p1allocd) {
     frame_t LIST_frame = early_allocate_frame(fa);
     page_t alloc_housing = containing_address(0x500000000);
     list_next = (void *)starting_address(alloc_housing);
-    // TODO: set the identity mapped page for this address to be READ ONLY!!!! (prevent stack fuckery)
-    kprintf("frame allocator gave frame with address: %74x\n", starting_address(LIST_frame));
     map_page_to_frame(alloc_housing, LIST_frame, 0, fa);
     list_head = frame_list_alloc();
     bounds_t membounds = get_large_ram_area(fa->mem_info);
@@ -666,14 +612,15 @@ frame_list_t *vpage_allocator(frame_allocator *fa) {
 
     _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
     _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
-    _mark_frame_allocated(LIST_frame);
+    _mark_contig_allocated(p1allocd, fa->current_frame_index - 1);
  
     return (frame_list_t *)0;
 }
 
-void map_out_huge_pages() {
-    page_t _np1 = (uint64_t)kmalloc(4096);
-    page_entry_t *np1 = (void *)_np1;
+frame_t map_out_huge_pages(frame_allocator *fa) {
+    frame_t nf = early_allocate_frame(fa);
+    identity_map(nf, 0, NULL);
+    page_entry_t *np1 = (void *)starting_address(nf);
     memset(np1, 0, sizeof(page_entry_t)*512);
     for(int i=0;i<512;i++) {
         np1[i].present = 1;
@@ -703,4 +650,8 @@ void map_out_huge_pages() {
     nent._addr_mask = containing_address((uint64_t)np1);
     page_table_t fp2 = (void *)get_page_index(2, (void *)0x100000);
     fp2[0].packed = nent.packed;
+    for(int i=1;i<PAGE_ENTRIES;i++) {
+        fp2[i].packed = 0;
+    }
+    return nf;
 }

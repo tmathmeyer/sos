@@ -2,6 +2,7 @@
 #include "multiboot.h"
 #include "interrupts.h"
 #include "paging.h"
+#include "kmalloc.h"
 
 
 extern void load_idt(void);
@@ -60,8 +61,10 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
-    vpage_allocator(&falloc);
-    map_out_huge_pages();
+    frame_t f = map_out_huge_pages(&falloc);
+    vpage_allocator(&falloc, f);
+
+    mem_init();
 }
 
 int kmain(struct multiboot_header *multiboot_info) {
@@ -74,10 +77,11 @@ int kmain(struct multiboot_header *multiboot_info) {
         return 1;
     }
 
-    enable_kernel_paging(multiboot_info);
-
     setup_IDT();
     load_IDT();
+
+    enable_kernel_paging(multiboot_info);
+
     kprintf("%04s", "SOS$ ");
     while(1) __asm__("hlt");
 }

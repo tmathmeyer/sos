@@ -85,7 +85,7 @@ typedef struct frame_list {
 page_t allocate_page();
 frame_t allocate_frame();
 void print_frame_alloc_table_list_entry(uint64_t);
-frame_list_t *vpage_allocator(frame_allocator *fa);
+frame_list_t *vpage_allocator(frame_allocator *, frame_t);
 frame_t early_allocate_frame();
 uint64_t containing_address(uint64_t addr);
 void unmap_page(page_t, frame_allocator *);
@@ -96,10 +96,8 @@ physical_address translate_address(virtual_address);
 void identity_map(frame_t, uint8_t, frame_allocator *);
 void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);
 void show_page_table_layout_for_address(uint64_t address);
-void map_out_huge_pages();
+frame_t map_out_huge_pages(frame_allocator *);
 void free_frame(frame_t);
-void *kmalloc(uint64_t);
-void kfree(void *);
 
 frame_allocator init_allocator(struct memory_map_tag *, physical_address,
                                                         physical_address,
