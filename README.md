@@ -22,6 +22,7 @@ Contributions, especially bug fixes, are welcome. Large features that implement 
 
  ##TODO list:
  - better page allocation
+     - use the AVL system for determining best fit rather than first fit
  - filesystem
  - text editor
  - compiler
