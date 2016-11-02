@@ -149,6 +149,19 @@ void run_cmd(char *run) {
         while (next && *next) {
             *addr++ = *next++;
         }
+    } else if (!strncmp(run, "pageinfo 0x", 11)) {
+        uint64_t addr = hex2int(run+11);
+        char *next = strfnd(run+11, ' ');
+        if (next && *next && !strncmp(next, " 0x", 3)) {
+            uint64_t size = hex2int(next+3);
+            page_t t = containing_address(addr);
+            for(size_t i=0; i<size; i++) {
+                uint64_t addr = starting_address(t+i);
+                kprintf("%05x  -->  %05x\n", addr, translate_address((void *)addr));
+            }
+        } else {
+            kprintf(" see %05x for usage\n", "help");
+        }
     } else if (!strncmp(run, "memstatus", 10)) {
         print_mem();
     } else if (!strncmp(run, "help", 5)) {

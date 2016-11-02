@@ -88,7 +88,7 @@ void print_frame_alloc_table_list_entry(uint64_t);
 frame_list_t *vpage_allocator(frame_allocator *, frame_t);
 frame_t early_allocate_frame();
 uint64_t containing_address(uint64_t addr);
-void unmap_page(page_t, frame_allocator *);
+void unmap_page(page_t);
 uint64_t starting_address(uint64_t page_frame);
 page_table_t referenced_table(page_entry_t entry);
 frame_t map_page(page_t, uint8_t, frame_allocator *);
@@ -100,8 +100,8 @@ frame_t map_out_huge_pages(frame_allocator *);
 void free_frame(frame_t);
 
 frame_allocator init_allocator(struct memory_map_tag *, physical_address,
-                                                        physical_address,
-                                                        physical_address,
-                                                        physical_address);
+        physical_address,
+        physical_address,
+        physical_address);
 #endif
 

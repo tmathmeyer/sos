@@ -25,7 +25,7 @@ page_table_t sub_table_address(page_table_t table, uint64_t at_index, uint8_t *h
         return referenced_table(table[at_index]);
     } else if (table[at_index].huge_page) {
         *huge = 1;
-	}
+    }
     return 0;
 }
 
@@ -137,21 +137,21 @@ frame_t translate_page(page_t virt) {
 
     page_table_t p3 = sub_table_address(((page_table_t)PAGE_TABLE4), p4_index(virt), &huge_page);
     if (DDDB) kprintf("p4_index = %47x\n", p4_index(virt));
-	if (DDDB) kprintf("p3 = %47x\n", p3);
+    if (DDDB) kprintf("p3 = %47x\n", p3);
     if (!p3) return 0;
 
     page_table_t p2 = sub_table_address(p3, p3_index(virt), &huge_page);
-	if (DDDB) kprintf("p3_index = %47x\n", p3_index(virt));
-	if (DDDB) kprintf("p2 = %47x\n", p2);
+    if (DDDB) kprintf("p3_index = %47x\n", p3_index(virt));
+    if (DDDB) kprintf("p2 = %47x\n", p2);
     if (huge_page) {
         ERROR("1GB HUGE PAGE");
         return 0;
     }
     if (!p2) return 0;
-    
+
     page_table_t p1 = sub_table_address(p2, p2_index(virt), &huge_page);
-	if (DDDB) kprintf("p2_index = %47x\n", p2_index(virt));
-	if (DDDB) kprintf("p1 = %47x\n", p1);
+    if (DDDB) kprintf("p2_index = %47x\n", p2_index(virt));
+    if (DDDB) kprintf("p1 = %47x\n", p1);
     if (huge_page) {
         page_entry_t _frame = p2[p2_index(virt)];
         uint64_t __frame = _frame.packed;
@@ -164,7 +164,7 @@ frame_t translate_page(page_t virt) {
         }
     }
     if (!p1) return 0;
-    
+
     page_entry_t _frame = p1[p1_index(virt)];
     if (!_frame.present)return 0;
 
@@ -213,7 +213,8 @@ void identity_map(frame_t frame, uint8_t flags, frame_allocator *alloc) {
             alloc);
 }
 
-void unmap_page(page_t page, frame_allocator *alloc) {
+void unmap_page(page_t page) {
+    frame_t frame = translate_page(page);
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
     uint8_t huge_page;
     if (!p4[p4_index(page)].present) {
@@ -239,7 +240,7 @@ void unmap_page(page_t page, frame_allocator *alloc) {
         return;
     }
     p1[p1_index(page)].present = 0;
-    WARN("FRAME NOT BEING FREED. GET BETTER FRAME ALLOCATOR");
+    free_frame(frame);
 }
 
 
@@ -282,7 +283,7 @@ void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocato
 
 void discover_next_free_frame(frame_allocator *alloc) {
     struct memory_area *area = 0;
-    
+
     void filter_pick(struct memory_area *m) {
         uint64_t addr = m->base_addr + m->length - 1;
         if (containing_address(addr) >= alloc->current_frame_index) {
@@ -382,10 +383,10 @@ void free_frame(frame_t t) {
 frame_list_t *frame_list_alloc() {
     // we will be returning list_next, so zero it
     memset(list_next, 0, sizeof(frame_list_t));
-    
+
     // set the next address
     list_next++;
-    
+
     // we can only fit 16 list structures per page/frame
     // when we hit 14, allocate a new structure. it has to be 14
     // because there is the chance that allocating a new structure
@@ -394,7 +395,7 @@ frame_list_t *frame_list_alloc() {
     if (nextframeaddr % PAGE_SIZE == 0) {
         page_t nextpage = containing_address(nextframeaddr);
         frame_t is_frame = translate_page(nextpage);
-        
+
         // this page is not mapped
         if (!is_frame) {
             is_frame = allocate_frame();
@@ -406,8 +407,13 @@ frame_list_t *frame_list_alloc() {
 }
 
 void free_LIST(frame_list_t *fat) {
+    list_next--;
+    if (fat == list_next) {
+        return;
+    }
+
     // we're going to shift the most recently used into the freed memory space!
-    frame_list_t *last_allocated = list_next - 1;
+    frame_list_t *last_allocated = list_next;
 
     // copy memory into freed chunk
     memcpy(fat, last_allocated, sizeof(frame_list_t));
@@ -445,10 +451,12 @@ void merge_LIST(frame_list_t *A, frame_list_t *B) {
     }
     A->end = B->end;
     frame_list_t *next = LIST_POINTER(B->next);
-    next->prev = (void *)(((uint64_t)A)|LIST_STATUS(next->prev));
-    A->next = (void *)(((uint64_t)next)|LIST_STATUS(A->next));
+    if (next) {
+        // there is another block after B, which needs to point back to A now
+        next->prev = (void *)(((uint64_t)A)|LIST_STATUS(next->prev));
+    }
+    A->next = B->next;
     free_LIST(B);
-
 }
 
 frame_list_t *split_block_at(frame_list_t *fat, frame_t frame) {
@@ -456,8 +464,8 @@ frame_list_t *split_block_at(frame_list_t *fat, frame_t frame) {
         // there was only one element, this LIST should be destroyed!
         frame_list_t *prev = LIST_POINTER(fat->prev);
         frame_list_t *next = LIST_POINTER(fat->next);
-        merge_LIST(prev, next);
         free_LIST(fat);
+        merge_LIST(prev, next);
         return NULL;
     }
     if (frame == fat->start) {
@@ -497,7 +505,6 @@ frame_list_t *split_block_at(frame_list_t *fat, frame_t frame) {
         return fat;
     } else {
         // its in the middle of our block :(
-
         frame_list_t *newblck = frame_list_alloc();
         frame_list_t *second_half = frame_list_alloc();
 
@@ -510,10 +517,12 @@ frame_list_t *split_block_at(frame_list_t *fat, frame_t frame) {
         second_half->end = fat->end;
         second_half->prev = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->next));
         second_half->next = fat->next;
+
         frame_list_t *nnn = LIST_POINTER(fat->next);
         if (nnn) {
             nnn->prev = (void *)(((uint64_t)second_half)|LIST_STATUS(nnn->prev));
         }
+
         fat->next = (void *)(((uint64_t)newblck)|LIST_STATUS(fat->next));
         fat->end = frame-1;
         return newblck;
@@ -613,7 +622,7 @@ frame_list_t *vpage_allocator(frame_allocator *fa, frame_t p1allocd) {
     _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
     _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
     _mark_contig_allocated(p1allocd, fa->current_frame_index - 1);
- 
+
     return (frame_list_t *)0;
 }
 
