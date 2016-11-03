@@ -162,6 +162,19 @@ void run_cmd(char *run) {
         } else {
             kprintf(" see %05x for usage\n", "help");
         }
+    } else if (!strncmp(run, "find ", 5)) {
+        char *x = (void *)0x1;
+        int i = 0;
+        char *ne = run+5;
+        while(ne[i]) {
+            if (*x == ne[i] && x!=ne) {
+                i++;
+            } else {
+                i = 0;
+            }
+            x++;
+        }
+        kprintf("%05x\n", x);
     } else if (!strncmp(run, "memstatus", 10)) {
         print_mem();
     } else if (!strncmp(run, "help", 5)) {
