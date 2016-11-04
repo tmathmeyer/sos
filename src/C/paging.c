@@ -567,6 +567,7 @@ loop:
     if (start >= fat->start && start <= fat->end) {
         if (end > fat->end) {
             WARN("Can't create contig alloc across blocks yet");
+            kprintf("alloc[%03x->%03x] blocks are [%03x->%03x]\n", start, end, fat->start, fat->end);
             return;
         }
         // block is already allocated
@@ -620,7 +621,11 @@ frame_list_t *vpage_allocator(frame_allocator *fa, frame_t p1allocd) {
     list_head->prev = (void *)(0);
 
     _mark_contig_allocated((fa->kernel_start), (fa->kernel_end));
-    _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
+    if (fa->mboot_start == fa->kernel_end) {
+        _mark_contig_allocated((fa->mboot_start)+1, (fa->mboot_end));
+    } else {
+        _mark_contig_allocated((fa->mboot_start), (fa->mboot_end));
+    }
     _mark_contig_allocated(p1allocd, fa->current_frame_index - 1);
 
     return (frame_list_t *)0;

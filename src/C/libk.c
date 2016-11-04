@@ -43,3 +43,13 @@ void *memcpy(void *_dest, void *_src, size_t bytes) {
         *dest++ = *src++;
     }
 }
+
+uint64_t stringlen(char *c) {
+    uint64_t i = 0;
+    if (c) {
+        while(c[i]) {
+            i++;
+        }
+    }
+    return i;
+}

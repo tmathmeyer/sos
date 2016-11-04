@@ -15,7 +15,7 @@
 #define INTERRUPTS 256
 #define HANDLE(i) do { \
     extern void interrupt_handler_##i(); \
-    set_handler(0x##i, (uint64_t)interrupt_handler_##i); \
+    set_handler(i, (uint64_t)interrupt_handler_##i); \
 } while(0)
 
 #define INT(name, num) void _interrupt_handler_##num()

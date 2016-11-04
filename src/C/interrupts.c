@@ -4,26 +4,34 @@
 #include "kshell.h"
 #include "kio.h"
 #include "registers.h"
+#include "timer.h"
 
 // static memory for the interrupt descriptor table
 idt_entry_t IDT[INTERRUPTS];
 
-INT("divide by zero", 00) {
+INT("divide by zero", 0x00) {
     kprintf("%6es divide by zero error\n", "[INT_HANDLER]");
     outb(PIC1, PIC_EOI);
 }
 
-INT("double fault", 08) {
+INT("double fault", 0x08) {
     kprintf("%6es Double Fault!\n", "[INT_HANDLER]");
     while(1);
 }
 
-INT("triple fault", 0d) {
+INT("triple fault", 0x0d) {
     kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
     while(1);
 }
 
-INT("keyboard", 21) {
+INT("timer", 0x20) {
+    kprintf("INT: %03x\n", 0x20);
+    outb(PIC1, PIC_EOI);
+    outb(PIC2, PIC_EOI);
+    return;
+}
+
+INT("keyboard", 0x21) {
     unsigned char status = inb(KEYBOARD_STATUS_PORT);
     if (status & 0x01) {
         unsigned char keycode = inb(KEYBOARD_DATA_PORT);
@@ -33,9 +41,6 @@ INT("keyboard", 21) {
     outb(PIC2, PIC_EOI);
     return;
 }
-
-
-
 
 void IDT_set_zero() {
     for(int i=0;i<INTERRUPTS;i++) {
@@ -55,15 +60,18 @@ static inline void _load_IDT(void* base, uint16_t size) {
 
 void setup_IDT() {
     IDT_set_zero();
-
+    set_timer_phase(1000);
+    
     // each of these declares an extern function (in ../asm/x86_64/long_mode.asm)
     // and then calls set_handler with 0x?? with the function pointer of the extern
     // set_handler puts the pointer info into an IDT struct and then adds it to the
     // IDT array. at the end of this function, that array is loaded using lidt
-    HANDLE(00);
-    HANDLE(08);
-    HANDLE(0d);
-    HANDLE(21);
+    HANDLE(0x00);
+    HANDLE(0x08);
+    HANDLE(0x0d);
+
+    HANDLE(0x20);
+    HANDLE(0x21); // keyboard:
 }
 
 

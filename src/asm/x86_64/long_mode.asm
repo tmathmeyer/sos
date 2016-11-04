@@ -23,10 +23,12 @@ long_mode:
         iretq
 %endmacro
 
-interrupt_handler 00
-interrupt_handler 21
-interrupt_handler 08
-interrupt_handler 0d
+interrupt_handler 0x00
+interrupt_handler 0x08
+interrupt_handler 0x0d
+
+interrupt_handler 0x20
+interrupt_handler 0x21
 
 read_port:
 mov edx, [esp + 4]

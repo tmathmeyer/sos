@@ -163,10 +163,15 @@ void run_cmd(char *run) {
             kprintf(" see %05x for usage\n", "help");
         }
     } else if (!strncmp(run, "find ", 5)) {
-        char *x = (void *)0x1;
+        char *x = (void *)0x1000;
         int i = 0;
         char *ne = run+5;
         while(ne[i]) {
+            if (i%4096 == 0) {
+                if (translate_address(x) == 0) {
+                    goto noaddr;
+                }
+            }
             if (*x == ne[i] && x!=ne) {
                 i++;
             } else {
@@ -174,7 +179,10 @@ void run_cmd(char *run) {
             }
             x++;
         }
-        kprintf("%05x\n", x);
+        kprintf("%05x\n", x - stringlen(run+5));
+        return;
+noaddr:
+        kprintf("text not found in ram [%03x]\n", x);
     } else if (!strncmp(run, "memstatus", 10)) {
         print_mem();
     } else if (!strncmp(run, "help", 5)) {

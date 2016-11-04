@@ -63,24 +63,34 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
 
     frame_t f = map_out_huge_pages(&falloc);
     vpage_allocator(&falloc, f);
-
     mem_init();
 }
 
+
+
 int kmain(struct multiboot_header *multiboot_info) {
+    /* kio and clear screen do not need paging or heap data */
     kio_init();
     clear_screen();
 
+    /* check multiboot information */
     int ERR = valid_multiboot(multiboot_info);
     if (ERR) {
         ERROR("multiboot information invalid");
         return 1;
     }
 
+    /* interrupt enable */
     setup_IDT();
     load_IDT();
 
+    /* enable mmu related functions -> enable page fixes and heap init */
     enable_kernel_paging(multiboot_info);
+
+    /* enable the scheduler */
+
+    /* enable hard drive comm */
+
 
     kprintf("%04s", "SOS$ ");
     while(1) __asm__("hlt");

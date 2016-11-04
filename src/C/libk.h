@@ -32,6 +32,7 @@ enum vga_color {
 void *memset(void *p, int b, size_t n);
 void *memcpy(void *dest, void *src, size_t bytes);
 void *page_frame_copy(void *src, size_t spf, void *dest, size_t dpf, size_t bytes);
+uint64_t stringlen(char *);
 
 
 void wait(void);
