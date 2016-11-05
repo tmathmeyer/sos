@@ -33,7 +33,6 @@ union {
 #define RW_WRITE 2
 
 void set_timer_phase(int);
-
-
+void enable_timer(void);
 
 #endif

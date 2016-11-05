@@ -3,6 +3,8 @@
 #include "interrupts.h"
 #include "paging.h"
 #include "kmalloc.h"
+#include "timer.h"
+#include "kshell.h"
 
 
 extern void load_idt(void);
@@ -80,10 +82,6 @@ int kmain(struct multiboot_header *multiboot_info) {
         return 1;
     }
 
-    /* interrupt enable */
-    setup_IDT();
-    load_IDT();
-
     /* enable mmu related functions -> enable page fixes and heap init */
     enable_kernel_paging(multiboot_info);
 
@@ -91,7 +89,19 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* enable hard drive comm */
 
+    /* interrupt enable */
+    setup_IDT();
+    //enable_timer();
 
+    /* this will be replaced by fork and a shell */
     kprintf("%04s", "SOS$ ");
-    while(1) __asm__("hlt");
+
+    /* become interrupt driven! */
+    while(1) {
+        char c;
+        if (c=read())  {
+            kshell(c);
+        }
+    }
+    __asm__("hlt");
 }

@@ -1,6 +1,7 @@
 #include "timer.h"
 #include "kio.h"
 #include "libk.h"
+#include "interrupts.h"
 
 /*
     0x36 = 0011 0110
@@ -20,4 +21,9 @@ void set_timer_phase(int hz) {
     int divisor = 1193180 / hz;
     outb(PIT_CH0, divisor & 0xff);
     outb(PIT_CH0, divisor >> 8);
+}
+
+void enable_timer(void) {
+    set_timer_phase(100);
+    outb(0x21, inb(0x21)&(0xFE));
 }

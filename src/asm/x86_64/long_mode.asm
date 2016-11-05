@@ -2,7 +2,7 @@ global long_mode
 global load_idt
 
 extern kmain
-extern interrupt_handler
+extern idt_handler
 
 
 
@@ -14,21 +14,87 @@ long_mode:
     mov qword [0xb8000], rax
     hlt
 
-
-%macro interrupt_handler 1
-    global interrupt_handler_%1
-    extern _interrupt_handler_%1
-    interrupt_handler_%1:
-        call _interrupt_handler_%1
-        iretq
+%macro NON_ERROR_INTERRUPT 1
+    global isr_%1
+    isr_%1:
+        push 0 ; error code
+        push %1 ; interrupt code0
+        jmp idt_common_prehandler
 %endmacro
 
-interrupt_handler 0x00
-interrupt_handler 0x08
-interrupt_handler 0x0d
+%macro ERROR_INTERRUPT 1
+    global isr_%1
+    isr_%1:
+        push %1 ; interrupt code0
+        jmp idt_common_prehandler
+%endmacro
+NON_ERROR_INTERRUPT 0
+NON_ERROR_INTERRUPT 1
+NON_ERROR_INTERRUPT 2
+NON_ERROR_INTERRUPT 3
+NON_ERROR_INTERRUPT 4
+NON_ERROR_INTERRUPT 5
+NON_ERROR_INTERRUPT 6
+NON_ERROR_INTERRUPT 7
+ERROR_INTERRUPT 8
+NON_ERROR_INTERRUPT 9
+ERROR_INTERRUPT 10
+ERROR_INTERRUPT 11
+ERROR_INTERRUPT 12
+ERROR_INTERRUPT 13
+ERROR_INTERRUPT 14
+NON_ERROR_INTERRUPT 15
+NON_ERROR_INTERRUPT 16
+NON_ERROR_INTERRUPT 17
+NON_ERROR_INTERRUPT 18
+NON_ERROR_INTERRUPT 19
+NON_ERROR_INTERRUPT 20
+NON_ERROR_INTERRUPT 21
+NON_ERROR_INTERRUPT 22
+NON_ERROR_INTERRUPT 23
+NON_ERROR_INTERRUPT 24
+NON_ERROR_INTERRUPT 25
+NON_ERROR_INTERRUPT 26
+NON_ERROR_INTERRUPT 27
+NON_ERROR_INTERRUPT 28
+NON_ERROR_INTERRUPT 29
+NON_ERROR_INTERRUPT 30
+NON_ERROR_INTERRUPT 31
+NON_ERROR_INTERRUPT 32
+NON_ERROR_INTERRUPT 33
+NON_ERROR_INTERRUPT 34
+NON_ERROR_INTERRUPT 35
+NON_ERROR_INTERRUPT 36
+NON_ERROR_INTERRUPT 37
+NON_ERROR_INTERRUPT 38
+NON_ERROR_INTERRUPT 39
+NON_ERROR_INTERRUPT 40
+NON_ERROR_INTERRUPT 41
+NON_ERROR_INTERRUPT 42
+NON_ERROR_INTERRUPT 43
+NON_ERROR_INTERRUPT 44
+NON_ERROR_INTERRUPT 45
+NON_ERROR_INTERRUPT 46
+NON_ERROR_INTERRUPT 47
 
-interrupt_handler 0x20
-interrupt_handler 0x21
+idt_common_prehandler:
+    ; Push data
+    
+    ; Create a pointer to ESP so that we can access
+    ; the data using a struct pointer in C.
+    mov rax, rsp
+    push rax
+    
+    call idt_handler
+    
+    pop rax ; Pop the pointer
+
+    add esp, 8 ; Remove the error code and the interrupt
+    iret ; TODO: Change with iret once this works.
+
+
+
+
 
 read_port:
 mov edx, [esp + 4]
@@ -40,56 +106,3 @@ mov   edx, [esp + 4]
 mov   al, [esp + 4 + 4]  
 out   dx, al  
 ret
-
-
-
-
-
-
-%if 0
-
-
-extern _divide_by_zero_handler
-global divide_by_zero_handler
-divide_by_zero_handler:
-    call _divide_by_zero_handler
-    iretq
-
-
-
-
-%macro no_error_code_interrupt_handler 1
-	global interrupt_handler_%1
-	interrupt_handler_%1:
-	push    dword 0                     ; push 0 as error code
-	push    dword %1                    ; push the interrupt number
-	jmp     common_interrupt_handler    ; jump to the common handler
-%endmacro
-
-%macro error_code_interrupt_handler 1
-	global interrupt_handler_%1
-	interrupt_handler_%1:
-	push    dword %1                    ; push the interrupt number
-	jmp     common_interrupt_handler    ; jump to the common handler
-%endmacro
-
-common_interrupt_handler:               ; the common parts of the generic interrupt handler
-	; save the registers
-	push    rax
-	push    rbx
-	push    rbp
-	; call the C function
-	call    interrupt_handler
-	; restore the registers
-	pop     rbp
-	pop     rbx
-	pop     rax
-	; restore the esp
-	add     esp, 8
-	; return to the code that got interrupted
-	iret
-
-no_error_code_interrupt_handler 0       ; create handler for interrupt 0
-no_error_code_interrupt_handler 1       ; create handler for interrupt 1
-error_code_interrupt_handler              7       ; create handler for interrupt 7
-%endif
