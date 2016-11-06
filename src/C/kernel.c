@@ -82,7 +82,6 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* interrupt enable */
     setup_IDT();
-    load_IDT();
 
     /* enable mmu related functions -> enable page fixes and heap init */
     enable_kernel_paging(multiboot_info);

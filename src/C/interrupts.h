@@ -13,12 +13,6 @@
 #define KEYBOARD_DATA_PORT 0x60
 
 #define INTERRUPTS 256
-#define HANDLE(i) do { \
-    extern void interrupt_handler_##i(); \
-    set_handler(i, (uint64_t)interrupt_handler_##i); \
-} while(0)
-
-#define INT(name, num) void _interrupt_handler_##num()
 
 struct opts {
     uint8_t ZEROS     : 8;
@@ -40,10 +34,44 @@ typedef struct idt_entry {
     uint32_t _2_reserved : 19;
 }__attribute__((packed)) idt_entry_t;
 
-idt_entry_t create_empty();
 idt_entry_t create(uint16_t, uint64_t);
-struct opts *set_handler(uint8_t loc, uint64_t fn_ptr);
-void load_IDT();
 void setup_IDT();
+void set_interrupt_handler(int handler_id, void (* func) (void));
+
+extern void irq_0(void);
+extern void irq_1(void);
+extern void irq_2(void);
+extern void irq_3(void);
+extern void irq_4(void);
+extern void irq_5(void);
+extern void irq_6(void);
+extern void irq_7(void);
+extern void irq_8(void);
+extern void irq_9(void);
+extern void irq_10(void);
+extern void irq_11(void);
+extern void irq_12(void);
+extern void irq_13(void);
+extern void irq_14(void);
+extern void irq_15(void);
+extern void irq_16(void);
+extern void irq_17(void);
+extern void irq_18(void);
+extern void irq_19(void);
+extern void irq_20(void);
+extern void irq_21(void);
+extern void irq_22(void);
+extern void irq_23(void);
+extern void irq_24(void);
+extern void irq_25(void);
+extern void irq_26(void);
+extern void irq_27(void);
+extern void irq_28(void);
+extern void irq_29(void);
+extern void irq_30(void);
+extern void irq_31(void);
+extern void irq_32(void);
+extern void irq_33(void);
+extern void irq_34(void);
 
 #endif

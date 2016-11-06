@@ -3,8 +3,7 @@ global load_idt
 
 extern kmain
 extern interrupt_handler
-
-
+extern common_handler
 
 section .text
 bits 64
@@ -16,19 +15,69 @@ long_mode:
 
 
 %macro interrupt_handler 1
-    global interrupt_handler_%1
-    extern _interrupt_handler_%1
-    interrupt_handler_%1:
-        call _interrupt_handler_%1
-        iretq
+    global irq_%1
+    irq_%1:
+        mov rdi, dword %1
+        jmp _precom2
 %endmacro
 
-interrupt_handler 0x00
-interrupt_handler 0x08
-interrupt_handler 0x0d
 
-interrupt_handler 0x20
-interrupt_handler 0x21
+_precom2:
+    push rax
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+    call common_handler
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
+    iretq
+interrupt_handler 0
+interrupt_handler 1
+interrupt_handler 2
+interrupt_handler 3
+interrupt_handler 4
+interrupt_handler 5
+interrupt_handler 6
+interrupt_handler 7
+interrupt_handler 8
+interrupt_handler 9
+interrupt_handler 10
+interrupt_handler 11
+interrupt_handler 12
+interrupt_handler 13
+interrupt_handler 14
+interrupt_handler 15
+interrupt_handler 16
+interrupt_handler 17
+interrupt_handler 18
+interrupt_handler 19
+interrupt_handler 20
+interrupt_handler 21
+interrupt_handler 22
+interrupt_handler 23
+interrupt_handler 24
+interrupt_handler 25
+interrupt_handler 26
+interrupt_handler 27
+interrupt_handler 28
+interrupt_handler 29
+interrupt_handler 30
+interrupt_handler 31
+interrupt_handler 32
+interrupt_handler 33
+
 
 read_port:
 mov edx, [esp + 4]
@@ -41,55 +90,3 @@ mov   al, [esp + 4 + 4]
 out   dx, al  
 ret
 
-
-
-
-
-
-%if 0
-
-
-extern _divide_by_zero_handler
-global divide_by_zero_handler
-divide_by_zero_handler:
-    call _divide_by_zero_handler
-    iretq
-
-
-
-
-%macro no_error_code_interrupt_handler 1
-	global interrupt_handler_%1
-	interrupt_handler_%1:
-	push    dword 0                     ; push 0 as error code
-	push    dword %1                    ; push the interrupt number
-	jmp     common_interrupt_handler    ; jump to the common handler
-%endmacro
-
-%macro error_code_interrupt_handler 1
-	global interrupt_handler_%1
-	interrupt_handler_%1:
-	push    dword %1                    ; push the interrupt number
-	jmp     common_interrupt_handler    ; jump to the common handler
-%endmacro
-
-common_interrupt_handler:               ; the common parts of the generic interrupt handler
-	; save the registers
-	push    rax
-	push    rbx
-	push    rbp
-	; call the C function
-	call    interrupt_handler
-	; restore the registers
-	pop     rbp
-	pop     rbx
-	pop     rax
-	; restore the esp
-	add     esp, 8
-	; return to the code that got interrupted
-	iret
-
-no_error_code_interrupt_handler 0       ; create handler for interrupt 0
-no_error_code_interrupt_handler 1       ; create handler for interrupt 1
-error_code_interrupt_handler              7       ; create handler for interrupt 7
-%endif
