@@ -27,7 +27,7 @@ void set_timer_phase(int hz) {
 }
 
 void init_timer() {
-    set_timer_phase(10);
+    set_timer_phase(20);
 
     set_interrupt_handler(0x20, &timer);
     outb(PIC1_DATA, inb(PIC1_DATA)&~0x01);

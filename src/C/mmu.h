@@ -1,5 +1,5 @@
-#ifndef paging_h
-#define paging_h
+#ifndef mmu_h
+#define mmu_h
 
 #include "multiboot.h"
 
@@ -56,49 +56,28 @@ typedef struct {
 } frame_allocator;
 
 
-// Frame And Page list
-// 256 byte structure!
-// we can fit exactly 16 of these per page
-// because of that, each pointer to a frame_list
-// is aligned such that there are 16 free bytes
-// in both .next and .prev
-// this serves as storage and sanity checksumming,
-// as the first 16 bits of each must match.
-// bit 0 of each determines if this is a free or allocated block
-// a 0 means unallocated, a 1 means allocated
-typedef struct frame_list {
-    frame_t start;
-    frame_t end;
-    struct frame_list *next;
-    struct frame_list *prev;
-} frame_list_t;
-
-
-
-
-
-#define LIST_POINTER(ADDR) (frame_list_t *)(((uint64_t)(ADDR))&0xFFFFFFFFFFFFFFF0)
-#define LIST_STATUS(ADDR) (((uint64_t)(ADDR))&0x000000000000000F)
-#define LIST_CHECKSUM(A, B) (LIST_STATUS(A)==LIST_STATUS(B))
-#define LIST_SET_STATUS(ADDR, s) ((ADDR) = LIST_POINTER(ADDR)|(s&0x000000000000000F))
-
-page_t allocate_page();
-frame_t allocate_frame();
-void print_frame_alloc_table_list_entry(uint64_t);
-frame_list_t *vpage_allocator(frame_allocator *, frame_t);
-frame_t early_allocate_frame();
-uint64_t containing_address(uint64_t addr);
-void unmap_page(page_t);
-uint64_t starting_address(uint64_t page_frame);
-page_table_t referenced_table(page_entry_t entry);
-frame_t map_page(page_t, uint8_t, frame_allocator *);
+uint64_t allocate_full_page();
+frame_t translate_page(page_t);
+page_table_t sub_table_address(page_table_t, uint64_t, uint8_t *);
 physical_address translate_address(virtual_address);
-void identity_map(frame_t, uint8_t, frame_allocator *);
-void map_page_to_frame(page_t, frame_t, uint8_t, frame_allocator *);
-void show_page_table_layout_for_address(uint64_t address);
-frame_t map_out_huge_pages(frame_allocator *);
-void free_frame(frame_t);
+page_table_t show_page_entry(page_table_t, uint64_t);
+void show_page_table_layout_for_address(uint64_t);
+uint64_t containing_address(uint64_t);
+uint64_t starting_address(uint64_t);
+void map_page_to_frame(uint64_t, uint64_t);
+void unmap_page(page_t);
 
+uint64_t get_next_free_frame();
+uint64_t get_next_free_page();
+void release_frame(uint64_t);
+void release_page(uint64_t);
+void level2_memory_allocator();
+void level1_memory_allocator(frame_allocator *alloc);
+void print_frames();
+void print_pages();
+
+
+frame_t map_out_huge_pages(frame_allocator *);
 frame_allocator init_allocator(struct memory_map_tag *, physical_address,
         physical_address,
         physical_address,

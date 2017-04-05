@@ -1,7 +1,7 @@
 #include "libk.h"
 #include "multiboot.h"
 #include "interrupts.h"
-#include "paging.h"
+#include "mmu.h"
 #include "kmalloc.h"
 #include "timer.h"
 #include "keyboard.h"
@@ -64,9 +64,10 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     frame_allocator falloc
         = init_allocator(mmap_sections, kernel_start, kernel_end, multiboot_start, multiboot_end);
 
+    level1_memory_allocator(&falloc);
     frame_t f = map_out_huge_pages(&falloc);
-    vpage_allocator(&falloc, f);
-    mem_init();
+    level2_memory_allocator(&falloc, f);
+
 }
 
 
@@ -91,8 +92,9 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* enable the scheduler */
     init_keyboard();
-    init_timer();
+    //init_timer();
 
+    pmst();
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");
     uint8_t keycode;

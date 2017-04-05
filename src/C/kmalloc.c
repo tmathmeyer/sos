@@ -2,7 +2,7 @@
 #include "libk.h"
 
 #include "kmalloc.h"
-#include "paging.h"
+#include "mmu.h"
 
 char *MEM_HEAD = NULL;
 char *MEM_END = NULL;
@@ -10,9 +10,9 @@ char *MEM_END = NULL;
 void force_paging(void *ptr) {
     physical_address phys = translate_address(ptr);
     if (!phys) { // we dont have a physical address for this virt addr
-        uint64_t frame = allocate_frame();
+        uint64_t frame = get_next_free_frame();
         uint64_t page  = containing_address((uint64_t)ptr);
-        map_page_to_frame(page, frame, 0, NULL);
+        map_page_to_frame(page, frame);
     }
 }
 

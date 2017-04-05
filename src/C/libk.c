@@ -1,6 +1,10 @@
 #include "libk.h"
-#include "paging.h"
+#include "mmu.h"
 
+bool _pmst = 0;
+void pmst() {
+    _pmst = 1;
+}
 void *memset(void *p, int b, size_t n) {
     char *_p = (char *)p;
     while(n --> 0) {

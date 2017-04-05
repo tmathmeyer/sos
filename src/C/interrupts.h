@@ -45,6 +45,7 @@ typedef struct idt_entry {
 idt_entry_t create(uint16_t, uint64_t);
 void setup_IDT();
 void set_interrupt_handler(int handler_id, void (* func) (struct interrupt_frame *));
+uint64_t get_error_code(struct interrupt_frame *);
 
 extern void irq_0(void);
 extern void irq_1(void);

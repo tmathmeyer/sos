@@ -2,7 +2,7 @@
 #include "ktype.h"
 #include "libk.h"
 #include "kio.h"
-#include "paging.h"
+#include "mmu.h"
 #include "kmalloc.h"
 
 uint8_t keymap[][128] = {
@@ -110,28 +110,27 @@ void run_cmd(char *run) {
     if (!(strncmp(run, "page 0x", 7))) {
         uint64_t num = hex2int(run+7);
         show_page_table_layout_for_address(num);
-    } else if (!strncmp(run, "frames 0x", 9)) {
-        uint64_t num = hex2int(run+9);
-        print_frame_alloc_table_list_entry(num);
-    } else if (!strncmp(run, "fault", 6)) {
-        int i = 0;
-        int j = 11;
+    } else if (!strncmp(run, "dzfault", 6)) {
+        int i=0, j=11;
         kprintf("stack = %6dx\n", &i);
         int k = j/i;
-    } else if (!strncmp(run, "kalloc 0x", 9)) {
-        uint64_t memsize = hex2int(run+9);
-        void *address = kmalloc(memsize);
-        kprintf("your ident mapped page is %03x\n", address);
-    } else if (!strncmp(run, "kfree 0x", 8)) {
-        uint64_t virt = hex2int(run+8);
-        kfree((void *)virt);
+    } else if (!strncmp(run, "frames", 7)) {
+        print_frames();
+    } else if (!strncmp(run, "pages", 6)) {
+        print_pages();
+    } else if (!strncmp(run, "fsteal", 7)) {
+        kprintf("stole page: %6ex\n", get_next_free_frame());
+    } else if (!strncmp(run, "palloc", 7)) {
+        page_t page = allocate_full_page();
+        kprintf("allocated page = %6ex\n", page);
+        kprintf("mapped to      = %6ex\n", translate_page(page));
     } else if (!strncmp(run, "kmap 0x", 7)) {
         uint64_t virt = hex2int(run+7);
         char *next = strfnd(run+7, ' ');
         if (*next && !strncmp(next, " 0x", 3)) {
             uint64_t phys = hex2int(next+3);
-            kprintf("mapping P%07x to F%07x\n", containing_address(virt), containing_address(phys));
-            map_page_to_frame(containing_address(virt), containing_address(phys), 0, (void *)0);
+            kprintf("mapping P%07x to F%07x\n", virt, phys);
+            map_page_to_frame(virt, phys);
         } else {
             kprintf("see %05x for usage\n", "help");
         }
@@ -192,9 +191,6 @@ noaddr:
         print_mem();
     } else if (!strncmp(run, "help", 5)) {
         kprintf("  page   [0xADDR]:      display page table info for a virtual address\n");
-        kprintf("  frames [0xN]:         print information for the frame allocation table\n");
-        kprintf("  kalloc [0xN]:         allocate at least N bytes of virtual memory\n");
-        kprintf("  kfree  [0xADDR]:      free the virtual memory at ADDR\n");
         kprintf("  kmap   [0xA1 0xA2]:   map virtual addr1 to physical addr2\n");
         kprintf("  read   [0xADDR 0xN]:  read N bytes from ADDR\n");
         kprintf("  write  [0xADDR text]: write [text] to ADDR\n");

@@ -34,6 +34,11 @@ struct interrupt_frame *get_real_frame(uint64_t frame_addr, uint64_t id) {
     return above+3;
 }
 
+uint64_t get_error_code(struct interrupt_frame *frame) {
+    uint64_t *framew = (uint64_t *)frame;
+    return framew[-1];
+}
+
 
 void dump_frame(struct interrupt_frame *frame) {
     kprintf("    InsPtr = %6ex\n", frame->instruction_ptr);
@@ -64,7 +69,7 @@ void triple_fault(struct interrupt_frame *frame) {
 void page_fault(struct interrupt_frame *frame) {
     kprintf("page while accessing virtual address: <<unknown>>\n");
     dump_frame(frame);
-    //IP = 0x10396E (0x102E97??)
+    kprintf("    ErrCod = %6ex\n", get_error_code(frame));
     while(1);
 }
 

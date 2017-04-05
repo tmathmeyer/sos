@@ -1,6 +1,12 @@
-
 #include "ktype.h"
 #include "paging.h"
+
+uint64_t _early_allocate_frame(void) {
+    return early_allocate_frame(early_alloc);
+}
+
+uint64_t (*get_next_free_frame) (void) = _early_allocate_frame;
+uint64_t (*get_next_free_page) (void) = ;
 
 uint64_t containing_address(uint64_t addr) {
     return addr / PAGE_SIZE;
@@ -27,6 +33,12 @@ page_table_t sub_table_address(page_table_t table, uint64_t at_index, uint8_t *h
         *huge = 1;
     }
     return 0;
+}
+
+void set_addr_mask(page_entry_t *entry, uint64_t addr) {
+    uint64_t mask = 0xfff0000000000fff;
+    entry->packed &= mask;
+    entry->packed |= (addr * PAGE_SIZE);
 }
 
 uint64_t p4_index(page_t page) {
@@ -117,10 +129,117 @@ void show_page_table_layout_for_address(uint64_t address) {
     }
     kprintf("the physical address associated with this virtual address is\n");
     kprintf("%03x\n", translate_address((void *)address));
+}
 
+/* ALWAYS KEEP 4 WAITING PAGES */
+struct page_waiting {
+    uint64_t page_A;
+    uint64_t page_B;
+    uint64_t page_C;
+    uint64_t page_D;
+    uint64_t missing;
+} pagebuffer = {
+    .page_A = 0,
+    .page_B = 0,
+    .page_C = 0,
+    .page_D = 0,
+    .missing = 4
+};
+
+uint64_t allocate_full_page();
+void fill_missing_pages() {
+    while(pagebuffer.missing) {
+        if (!pagebuffer.page_A) {
+            pagebuffer.page_A = allocate_full_page();
+        }
+        if (!pagebuffer.page_B) {
+            pagebuffer.page_B = allocate_full_page();
+        }
+        if (!pagebuffer.page_C) {
+            pagebuffer.page_C = allocate_full_page();
+        }
+        if (!pagebuffer.page_D) {
+            pagebuffer.page_D = allocate_full_page();
+        }
+        pagebuffer.missing -= 1;
+    }
+}
+
+uint64_t grab_next_page_quiet() {
+    uint64_t page = 0;
+    if (pagebuffer.page_A) {
+        page = pagebuffer.page_A;
+        pagebuffer.page_A = 0;
+    }
+    if (pagebuffer.page_B) {
+        page = pagebuffer.page_B;
+        pagebuffer.page_B = 0;
+    }
+    if (pagebuffer.page_C) {
+        page = pagebuffer.page_C;
+        pagebuffer.page_C = 0;
+    }
+    if (pagebuffer.page_D) {
+        page = pagebuffer.page_D;
+        pagebuffer.page_D = 0;
+    }
+    pagebuffer.missing += 1;
+    return page;
+}
+        
+
+uint64_t singe_mapped_page_claim() {
+    fill_missing_pages();
+    uint64_t page = pagebuffer.page_A;
+    pagebuffer.page_A = 0;
+    pagebuffer.missing += 1;
+    fill_missing_pages();
+    return page;
+}
+
+page_table_t map_subpage_table(page_table_t parent_page, int table_index) {
+    page_entry_t index = parent_page[table_index];
+    if (index.present) {
+        return referenced_table(index);
+    }
+    uint64_t page = grab_next_page_quiet();
+    memset((void *)starting_address(page), 0, sizeof(page_table_t));
+
+    set_addr_mask(&index, grab_next_page_quiet());
+    index.present = 1;
+    index.writable = 1;
+    return referenced_table(index);
 }
 
 physical_address translate_page(page_t virt);
+void map_page_to_frame(uint64_t vpage, uint64_t pframe) {
+    if (translate_page(vpage) == pframe) {
+        return; // no mapping required!
+    }
+    
+    page_table_t p4 = (page_table_t)PAGE_TABLE4;
+    page_table_t p3 = map_subpage_table(p4, p4_index(vpage));
+    page_table_t p2 = map_subpage_table(p3, p3_index(vpage));
+    page_table_t p1 = map_subpage_table(p2, p2_index(vpage));
+    
+    if (p1[p1_index(vpage)].present) {
+        WARN("mapping a present page to new frame!");
+    }
+    set_addr_mask(&p1[p1_index(vpage)], pframe);
+
+    p1[p1_index(vpage)].present = 1;
+    p1[p1_index(vpage)].writable = 1;
+}
+
+uint64_t allocate_full_page() {
+    uint64_t page = get_next_free_page();
+    uint64_t frame = get_next_free_frame();
+    map_page_to_frame(page, frame);
+    return page;
+}
+
+
+
 physical_address translate_address(virtual_address virt) {
     uint64_t offset = ((uint64_t)virt) % PAGE_SIZE;
     frame_t frame = translate_page(containing_address((uint64_t)virt));
@@ -172,12 +291,6 @@ frame_t translate_page(page_t virt) {
     frame_t frame = containing_address(__frame & 0x000ffffffffff000);
 }
 
-void set_addr_mask(page_entry_t *entry, uint64_t addr) {
-    uint64_t mask = 0xfff0000000000fff;
-    entry->packed &= mask;
-    entry->packed |= (addr * PAGE_SIZE);
-}
-
 page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_allocator *alloc) {
     page_entry_t location = in[index];
     page_table_t res;
@@ -208,9 +321,7 @@ page_table_t create_if_nonexistant(page_table_t in, uint64_t index, frame_alloca
 void identity_map(frame_t frame, uint8_t flags, frame_allocator *alloc) {
     map_page_to_frame(
             containing_address(starting_address(frame)),
-            frame,
-            flags,
-            alloc);
+            frame);
 }
 
 void unmap_page(page_t page) {
@@ -241,44 +352,6 @@ void unmap_page(page_t page) {
     }
     p1[p1_index(page)].present = 0;
     free_frame(frame);
-}
-
-
-frame_t map_page(page_t page, uint8_t flags, frame_allocator *alloc) {
-    frame_t frame = early_allocate_frame(alloc);
-    if (!frame) {
-        ERROR("no frames availible");
-    }
-    map_page_to_frame(page, frame, flags, alloc);
-    return frame;
-}
-
-void map_page_to_frame(page_t page, frame_t frame, uint8_t flags, frame_allocator *alloc) {
-    if (translate_page(page) == frame) {
-        return; // no mapping required!
-    }
-    //TODO set flags
-    page_table_t p4 = (page_table_t)PAGE_TABLE4;
-    page_table_t p3 = create_if_nonexistant(p4, p4_index(page), alloc);
-    page_table_t p2 = create_if_nonexistant(p3, p3_index(page), alloc);
-    page_table_t p1 = create_if_nonexistant(p2, p2_index(page), alloc);
-    if (p1) { // p2 is a normal page table, procede normally
-        if (p1[p1_index(page)].present) {
-            WARN("mapping a present page to new frame!");
-        }
-        set_addr_mask(&p1[p1_index(page)], frame);
-        p1[p1_index(page)].present = 1;
-        p1[p1_index(page)].writable = 1;
-    } else { // p2 is a huge page table, so some special stuff
-        page_entry_t _frame = p2[p2_index(page)];
-        if (_frame.present) {
-            WARN("mapping a present page to new frame!");
-        }
-        set_addr_mask(&p2[p2_index(page)], frame&0xfffffffffffffe00);
-        p2[p2_index(page)].present = 1;
-        p2[p2_index(page)].writable = 1;
-    }
-
 }
 
 void discover_next_free_frame(frame_allocator *alloc) {
@@ -346,7 +419,7 @@ frame_list_t *split_block_at(frame_list_t *, frame_t);
 
 void assign_address(page_t page) {
     frame_t f = allocate_frame();
-    map_page_to_frame(page, f, 0, NULL);
+    map_page_to_frame(page, f);
 }
 
 frame_list_t *list_head = NULL;
@@ -399,7 +472,7 @@ frame_list_t *frame_list_alloc() {
         // this page is not mapped
         if (!is_frame) {
             is_frame = allocate_frame();
-            map_page_to_frame(nextpage, is_frame, 0, NULL);
+            map_page_to_frame(nextpage, is_frame);
         }
         // TODO mark page allocated
     }
@@ -612,7 +685,7 @@ frame_list_t *vpage_allocator(frame_allocator *fa, frame_t p1allocd) {
     frame_t LIST_frame = early_allocate_frame(fa);
     page_t alloc_housing = containing_address(0x500000000);
     list_next = (void *)starting_address(alloc_housing);
-    map_page_to_frame(alloc_housing, LIST_frame, 0, fa);
+    map_page_to_frame(alloc_housing, LIST_frame);
     list_head = frame_list_alloc();
     bounds_t membounds = get_large_ram_area(fa->mem_info);
     list_head->start = containing_address(membounds.start);
