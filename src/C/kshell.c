@@ -113,6 +113,11 @@ void run_cmd(char *run) {
     } else if (!strncmp(run, "frames 0x", 9)) {
         uint64_t num = hex2int(run+9);
         print_frame_alloc_table_list_entry(num);
+    } else if (!strncmp(run, "fault", 6)) {
+        int i = 0;
+        int j = 11;
+        kprintf("stack = %6dx\n", &i);
+        int k = j/i;
     } else if (!strncmp(run, "kalloc 0x", 9)) {
         uint64_t memsize = hex2int(run+9);
         void *address = kmalloc(memsize);
@@ -242,10 +247,13 @@ void kshell(unsigned char key) {
 
         case KB_ENTER:
         if (up) {
+            int i;
             kprintf("\n");
             run_cmd(readline);
             rdl_index = 0;
-            memset(readline, 0, RDL_SIZE);
+            for(i=0;i<RDL_SIZE;i++) {
+                readline[i] = 0;
+            }
             kprintf("%04s", "SOS$ ");
         }
         break;

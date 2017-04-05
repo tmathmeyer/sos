@@ -6,6 +6,18 @@ char *VGA = (char *)0xb8000;
 uint8_t X;
 uint8_t Y;
 
+void force_char(char c, uint8_t color, uint16_t x, uint16_t y) {
+    uint32_t l = x + y*COLS;
+    l *= VIDB;
+    VGA[l++] = c;
+    VGA[l++] = color;
+}
+
+void force_simple_string(char *str, uint8_t color, uint16_t x, uint16_t y) {
+    for(int i=x; (x<COLS)&&*str; i++) {
+        force_char(*str++, color, i, y);
+    }
+}
 
 int strncmp(char *a, char *b, size_t len) {
     while(len-- && *a && *b) {

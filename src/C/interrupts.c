@@ -5,10 +5,11 @@
 #include "kio.h"
 #include "registers.h"
 #include "timer.h"
+#include "lock.h"
 
 // static memory for the interrupt descriptor table
 idt_entry_t IDT[INTERRUPTS];
-void (*handlers[INTERRUPTS]) (void);
+void (*handlers[INTERRUPTS]) (struct interrupt_frame *);
 void (*irqs[INTERRUPTS]) (void) = {
     &irq_0, &irq_1, &irq_2, &irq_3, &irq_4, &irq_5, &irq_6, &irq_7, &irq_8,
     &irq_9, &irq_10, &irq_11, &irq_12, &irq_13, &irq_14, &irq_15, &irq_16,
@@ -17,32 +18,54 @@ void (*irqs[INTERRUPTS]) (void) = {
     &irq_33,
 };
 
-void invalid_opcode(void) {
+void invalid_opcode(struct interrupt_frame *frame) {
     kprintf("INVALID OPCODE");
     while(1);
 }
 
-void divide_by_zero(void) {
-    kprintf("%6es divide by zero error\n", "[INT_HANDLER]");
-    while(1);
-}
-
-void double_fault(void) {
-    kprintf("%6es Double Fault!\n", "[INT_HANDLER]");
-    while(1);
-}
-
-void triple_fault(void) {
-    kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
-    while(1);
-}
-
-void keyboard(void) {
-    unsigned char status = inb(KEYBOARD_STATUS_PORT);
-    if (status & 0x01) {
-        unsigned char keycode = inb(KEYBOARD_DATA_PORT);
-        kshell(keycode);
+struct interrupt_frame *get_real_frame(uint64_t frame_addr, uint64_t id) {
+    switch (id) {
+        case 8: case 10: case 11: case 12:
+        case 13: case 14: case 17: case 30:
+            // account for the error code
+            frame_addr += sizeof(uint64_t);
     }
+    struct interrupt_frame *above = (struct interrupt_frame *)frame_addr;
+    return above+3;
+}
+
+
+void dump_frame(struct interrupt_frame *frame) {
+    kprintf("    InsPtr = %6ex\n", frame->instruction_ptr);
+    kprintf("    CodSeg = %6ex\n", frame->code_segment);
+    kprintf("    CPUFlg = %6ex\n", frame->cpu_flags);
+    kprintf("    StkPtr = %6ex\n", frame->stack_pointer);
+    kprintf("    StkSgm = %6ex\n", frame->stack_segment);
+}
+
+void divide_by_zero(struct interrupt_frame *frame) {
+    kprintf("%6es divide by zero error\n", "[INT_HANDLER]");
+    dump_frame(frame);
+    while(1);
+}
+
+void double_fault(struct interrupt_frame *frame) {
+    kprintf("%6es Double Fault!\n", "[INT_HANDLER]");
+    dump_frame(frame);
+    while(1);
+}
+
+void triple_fault(struct interrupt_frame *frame) {
+    kprintf("%6es Triple Fault!\n", "[INT_HANDLER]");
+    dump_frame(frame);
+    while(1);
+}
+
+void page_fault(struct interrupt_frame *frame) {
+    kprintf("page while accessing virtual address: <<unknown>>\n");
+    dump_frame(frame);
+    //IP = 0x10396E (0x102E97??)
+    while(1);
 }
 
 void setup_IDT() {
@@ -76,35 +99,31 @@ void setup_IDT() {
         void*    base;
     } __attribute__((packed)) IDTR = {sizeof(IDT)-1, IDT};
     asm("lidt %0" : : "m"(IDTR));  // let the compiler choose an addressing mode
-    asm("sti");
 
-    set_interrupt_handler(0x08, double_fault);
     set_interrupt_handler(0x06, invalid_opcode);
+    set_interrupt_handler(0x08, double_fault);
     set_interrupt_handler(0x0d, triple_fault);
+    set_interrupt_handler(0x0e, page_fault);
     set_interrupt_handler(0x00, divide_by_zero);
-
-    outb(PIC1_DATA, 0xfd);
-    outb(PIC2_DATA, 0xff);
-    set_interrupt_handler(0x21, keyboard);
+    asm("sti");
 }
 
-void common_handler(uint64_t id) {
-    if (handlers[id]) {
-        handlers[id]();
-    } else {
-        kprintf("unhandled exception: %02i\n", id);
+lock_t interrupt_lock;
+void common_handler(uint64_t id, uint64_t stack) {
+    if (try_lock(&interrupt_lock)) {
+        if (handlers[id]) {
+            handlers[id](get_real_frame(stack, id));
+        } else {
+            kprintf("unhandled exception: %02i\n", id);
+        }
+        if (id >= 0x28 && id < 0x30) outb(PIC2, PIC_EOI);
+        if (id >= 0x20 && id < 0x30) outb(PIC1, PIC_EOI);
+        spin_unlock(&interrupt_lock);
     }
-    if (id >= 0x28 && id < 0x30) outb(PIC2, PIC_EOI);
-    if (id >= 0x20 && id < 0x30) outb(PIC1, PIC_EOI);
 }
 
-void set_interrupt_handler(int handler_id, void (* func) (void)) {
+void set_interrupt_handler(int handler_id, void (* func) (struct interrupt_frame *)) {
     handlers[handler_id] = func;
-}
-
-struct opts *set_handler(uint8_t loc, uint64_t fn_ptr) {
-    IDT[loc] = create(cs(), fn_ptr);
-    return (struct opts *)&(IDT[loc].opts);
 }
 
 idt_entry_t create(uint16_t gdt_selector, uint64_t fn_ptr) {
@@ -114,9 +133,11 @@ idt_entry_t create(uint16_t gdt_selector, uint64_t fn_ptr) {
     result.ptr_mid = (uint16_t)(fn_ptr >> 16);
     result.ptr_high = (uint32_t)(fn_ptr >> 32);
 
-    result.opts.present     = 1;
-    result.opts.DPL         = 3;
-    result.opts.gate_type   = 0x0F;
+    result.opts.stack_OK    = 0; // do not switch stack
+    result.opts.present     = 1; // are we valid
+    result.opts.DPL         = 3; // priv to call int handler
+    result.opts.gate_type   = 0x01; // 1 = interrupt, 2 = trap
+    result.opts.ONES        = 0x07;
     result.opts.ZERO        = 0;
     result.opts.ZEROS       = 0;
 

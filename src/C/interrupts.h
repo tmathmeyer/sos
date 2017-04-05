@@ -9,14 +9,22 @@
 #define PIC2_DATA (PIC2+1)
 #define PIC_EOI 0x20 // end of interrupt
 #define IRQ_BASE 0x20
-#define KEYBOARD_STATUS_PORT 0x64
-#define KEYBOARD_DATA_PORT 0x60
 
 #define INTERRUPTS 256
 
+struct interrupt_frame {
+    uint64_t instruction_ptr;
+    uint64_t code_segment;
+    uint64_t cpu_flags;
+    uint64_t stack_pointer;
+    uint64_t stack_segment;
+}__attribute__((packed));
+
 struct opts {
-    uint8_t ZEROS     : 8;
-    uint8_t gate_type : 4;
+    uint8_t stack_OK  : 3;
+    uint8_t ZEROS     : 5;
+    uint8_t gate_type : 1;
+    uint8_t ONES      : 3;
     uint8_t ZERO      : 1;
     uint8_t DPL       : 2;
     uint8_t present   : 1;
@@ -36,7 +44,7 @@ typedef struct idt_entry {
 
 idt_entry_t create(uint16_t, uint64_t);
 void setup_IDT();
-void set_interrupt_handler(int handler_id, void (* func) (void));
+void set_interrupt_handler(int handler_id, void (* func) (struct interrupt_frame *));
 
 extern void irq_0(void);
 extern void irq_1(void);

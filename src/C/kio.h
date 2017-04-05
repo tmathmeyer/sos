@@ -16,4 +16,7 @@ int strncmp(char *a, char *b, size_t len);
 uint64_t hex2int(char *x);
 uint32_t backspace();
 char *strfnd(char *, char);
+void force_char(char, uint8_t, uint16_t, uint16_t);
+void force_simple_string(char *, uint8_t, uint16_t, uint16_t);
+uint32_t write_string(char *, uint8_t);
 #endif

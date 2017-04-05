@@ -32,7 +32,7 @@ union {
 #define RW_READ 1
 #define RW_WRITE 2
 
-void set_timer_phase(int);
+void init_timer();
 
 
 
