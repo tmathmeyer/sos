@@ -4,6 +4,7 @@
 #include "kio.h"
 #include "mmu.h"
 #include "kmalloc.h"
+#include "time.h"
 
 uint8_t keymap[][128] = {
     {0},
@@ -122,6 +123,8 @@ void run_cmd(char *run) {
         kprintf("stole page: %6ex\n", get_next_free_frame());
     } else if (!strncmp(run, "nfp", 4)) {
         kprintf("next free page = %6ex\n", find_page_no_table_creation(4)); 
+    } else if (!strncmp(run, "time", 5)) {
+        show_time();
     } else if (!strncmp(run, "gpi2 0x", 7)) {
         uint64_t a = hex2int(run+7);
         kprintf("table address = %6ex\n", get_page_index(2, (void *)a)); 
@@ -136,7 +139,6 @@ void run_cmd(char *run) {
             uint64_t phys = hex2int(next+3);
             kprintf("mapping P%07x to F%07x\n", virt, phys);
             map_page_to_frame(virt, phys);
-            fill_missing_pages();
         } else {
             kprintf("see %05x for usage\n", "help");
         }
@@ -198,14 +200,11 @@ noaddr:
             goto fucking;
         }
         kprintf("text not found in ram [%03x]\n", x);
-    } else if (!strncmp(run, "memstatus", 10)) {
-        print_mem();
     } else if (!strncmp(run, "help", 5)) {
         kprintf("  page   [0xADDR]:      display page table info for a virtual address\n");
         kprintf("  kmap   [0xA1 0xA2]:   map virtual addr1 to physical addr2\n");
         kprintf("  read   [0xADDR 0xN]:  read N bytes from ADDR\n");
         kprintf("  write  [0xADDR text]: write [text] to ADDR\n");
-        kprintf("  memstatus:            display information about the virtual memory allocator\n");
         kprintf("  help:                 print this information\n");
     } else {
         kprintf("INVALID COMMAND\n");

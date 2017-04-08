@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "kshell.h"
+#include "time.h"
 
 
 extern void load_idt(void);
@@ -99,6 +100,4 @@ int kmain(struct multiboot_header *multiboot_info) {
     while(keycode=key_poll(), 1) {
         kshell(keycode);
     }
-
-
 }
