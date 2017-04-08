@@ -2,7 +2,6 @@
 #include "multiboot.h"
 #include "interrupts.h"
 #include "mmu.h"
-#include "kmalloc.h"
 #include "timer.h"
 #include "keyboard.h"
 #include "kshell.h"
