@@ -14,20 +14,18 @@ static struct segment_list *frame_head = NULL;
 static struct segment_list *page_head = NULL;
 static frame_allocator *level1_allocator = NULL;
 
+/* internal use only - do not replenish page store */
+void _map_page_to_frame(uint64_t, uint64_t);
+
 /* keep a buffer of waiting mapped addresses */
 // TODO: replace with an array...
+#define WAITING_SIZE 10
 static struct page_waiting {
-    uint64_t page_A;
-    uint64_t page_B;
-    uint64_t page_C;
-    uint64_t page_D;
+    uint64_t pages[WAITING_SIZE];
     uint64_t missing;
 } pagebuffer = {
-    .page_A = 0,
-    .page_B = 0,
-    .page_C = 0,
-    .page_D = 0,
-    .missing = 4
+    .pages = {0},
+    .missing = WAITING_SIZE
 };
 
 /* print the alloc/free frame list */
@@ -91,28 +89,23 @@ uint64_t __get_next_free_page() {
     return claim_next_free_segment(page_head);
 }
 
+/* setup the frame & page free lists */
 void level2_memory_allocator(frame_allocator *alloc, frame_t f) {
-    frame_t A = _get_next_free_frame();
-    map_page_to_frame(A, A);
-    pagebuffer.page_A = A;
-    frame_t B = _get_next_free_frame();
-    map_page_to_frame(B, B);
-    pagebuffer.page_B = B;
-    frame_t C = _get_next_free_frame();
-    map_page_to_frame(C, C);
-    pagebuffer.page_C = C;
-    frame_t D = _get_next_free_frame();
-    map_page_to_frame(D, D);
-    pagebuffer.page_D = D;
-    
+    for(int i=0; i<WAITING_SIZE; i++) {
+        frame_t A = _get_next_free_frame();
+        _map_page_to_frame(A, A);
+        pagebuffer.pages[i] = A;
+        pagebuffer.missing--;
+    }
+
     frame_t p_frame = _get_next_free_frame();
-    map_page_to_frame(p_frame, p_frame);
+    _map_page_to_frame(p_frame, p_frame);
     // range of "heap" memory
     page_head = create_head((void *)starting_address(p_frame), 0x8000000, 0x8ffffff); 
     
     
     frame_t f_frame = _get_next_free_frame();
-    map_page_to_frame(f_frame, f_frame);
+    _map_page_to_frame(f_frame, f_frame);
     // support 0x10000 frames starting from last used frame
     frame_head = create_head((void *)starting_address(f_frame), f_frame+1, f_frame+0x10000);
 
@@ -123,6 +116,7 @@ void level2_memory_allocator(frame_allocator *alloc, frame_t f) {
     _release_page = __release_page;
 }
 
+/* setup the early allocators */
 void level1_memory_allocator(frame_allocator *alloc) {
     level1_allocator = alloc;
     _get_next_free_frame = _early_allocate_frame;
@@ -171,44 +165,29 @@ void set_addr_mask(page_entry_t *entry, uint64_t addr) {
 
 /* fill in the page buffer */
 void fill_missing_pages() {
-    while(pagebuffer.missing) {
-        if (!pagebuffer.page_A) {
-            pagebuffer.page_A = allocate_full_page();
+    for(int i=0; i<WAITING_SIZE; i++) {
+        if (!pagebuffer.pages[i]) {
+            page_t page = find_page_no_table_creation(4);
+            frame_t frame = get_next_free_frame();
+            _map_page_to_frame(page, frame);
+            pagebuffer.pages[i] = page;
+            pagebuffer.missing--;
         }
-        if (!pagebuffer.page_B) {
-            pagebuffer.page_B = allocate_full_page();
-        }
-        if (!pagebuffer.page_C) {
-            pagebuffer.page_C = allocate_full_page();
-        }
-        if (!pagebuffer.page_D) {
-            pagebuffer.page_D = allocate_full_page();
-        }
-        pagebuffer.missing -= 1;
     }
 }
 
 /* take a page from the page buffer without replacement */
 uint64_t grab_next_page_quiet() {
     uint64_t page = 0;
-    if (pagebuffer.page_A) {
-        page = pagebuffer.page_A;
-        pagebuffer.page_A = 0;
+    for(int i=0; i<WAITING_SIZE; i++) {
+        if (pagebuffer.pages[i]) {
+            page = pagebuffer.pages[i];
+            pagebuffer.pages[i] = 0;
+            pagebuffer.missing += 1;
+            return page;
+        }
     }
-    if (pagebuffer.page_B) {
-        page = pagebuffer.page_B;
-        pagebuffer.page_B = 0;
-    }
-    if (pagebuffer.page_C) {
-        page = pagebuffer.page_C;
-        pagebuffer.page_C = 0;
-    }
-    if (pagebuffer.page_D) {
-        page = pagebuffer.page_D;
-        pagebuffer.page_D = 0;
-    }
-    pagebuffer.missing += 1;
-    return page;
+    return 0;
 }
 
 /* take a page and then fill in the buffer again */
@@ -228,16 +207,22 @@ page_table_t map_subpage_table(page_table_t parent_page, int index_no) {
         set_addr_mask(&index, page);
         index.present = 1;
         index.writable = 1;
+        parent_page[index_no] = index;
     }
     return referenced_table(index);
 }
 
 /* link virtual and physical pages in mmu */
-void map_page_to_frame(uint64_t vpage, uint64_t pframe) {
+void map_page_to_frame(uint64_t page, uint64_t frame) {
+    _map_page_to_frame(page, frame);
+    fill_missing_pages();
+}
+    
+
+void _map_page_to_frame(uint64_t vpage, uint64_t pframe) {
     if (translate_page(vpage) == pframe) {
         return; // no mapping required!
     }
-    fill_missing_pages();
     
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
     page_table_t p3 = map_subpage_table(p4, table_index(vpage, P4_INDEX));
@@ -258,10 +243,7 @@ void map_page_to_frame(uint64_t vpage, uint64_t pframe) {
 uint64_t allocate_full_page() {
     uint64_t page = get_next_free_page();
     uint64_t frame = get_next_free_frame();
-    kprintf("AFP: page=%6ex frame=%6ex\n", page, frame);
     map_page_to_frame(page, frame);
-    kprintf("AFP: missing = %6ex\n", pagebuffer.missing);
-    fill_missing_pages();
     return page;
 }
 
@@ -284,6 +266,7 @@ frame_t translate_page(page_t virt) {
 
     page_table_t p2 = sub_table_address(p3, p3_index(virt), &huge_page);
     if (huge_page) {
+        kprintf("page table l3 (%03x) index[%03x] is huge\n", p3, p3_index(virt));
         ERROR("1GB HUGE PAGE");
         return 0;
     }
@@ -309,6 +292,55 @@ frame_t translate_page(page_t virt) {
     uint64_t __frame = _frame.packed;
     frame_t frame = containing_address(__frame & 0x000ffffffffff000);
     return frame;
+}
+
+#define PSN 0xFFFFFFFFFFFFFFFF
+uint64_t pt_has_free(page_table_t table, int table_level) {
+    uint64_t nxt = 0;
+    uint8_t huge_page;
+    for(uint64_t i=0; i<PAGE_ENTRIES-1; i++) {
+        switch(table_level) {
+            case 1:
+                if (!table[i].present) {
+                    return i;
+                }
+                break;
+            case 2: case 3: case 4:
+                if (table[i].present) {
+                    if (PSN != (nxt=pt_has_free(sub_table_address(table, i, &huge_page), table_level-1))) {
+                        uint64_t test = nxt | (i<<(9*(table_level-1)));
+                        if (!translate_page(test)) {
+                            return test;
+                        }
+                    }
+                }
+        }
+    }
+    return PSN;
+}
+
+page_t find_page_no_table_creation(int level) {
+    page_t res = pt_has_free((page_table_t)PAGE_TABLE4, level);
+    if (res != PSN) {
+        return res;
+    }
+    uint64_t nextp1 = grab_next_page_quiet();
+    page_table_t p2_table = (void *)get_page_index(2, (void *)0x200000);
+
+    page_entry_t index = p2_table[1];
+    if (index.present) {
+        kprintf("[[%6ex]] ", p2_table);
+        show_page_entry(p2_table, 1, 0);
+        kprintf("FUCK!\n");
+        while(1);
+    }
+    
+    memset((void *)starting_address(nextp1), 0, sizeof(page_table_t));
+    set_addr_mask(&p2_table[1], nextp1);
+    p2_table[1].present = 1;
+    p2_table[1].writable = 1;
+    res = pt_has_free((page_table_t)PAGE_TABLE4, level);
+    return res;
 }
 
 /* unmap the virtual address from its physical address. free physical address */
@@ -446,7 +478,7 @@ page_table_t sub_table_address(page_table_t table, uint64_t at_index, uint8_t *h
 
 /* support for mapping out huge pages */
 uint64_t get_page_index(uint8_t pagenum, virtual_address va) {
-    page_t VA = containing_address(VA);
+    page_t VA = containing_address((uint64_t)va);
     page_table_t p4 = (page_table_t)PAGE_TABLE4;
     if (pagenum == 4) {
         return (uint64_t)p4;
@@ -469,7 +501,7 @@ uint64_t get_page_index(uint8_t pagenum, virtual_address va) {
 /* we don't like huge pages 'round these parts */
 frame_t map_out_huge_pages(frame_allocator *fa) {
     frame_t nf = early_allocate_frame(fa);
-    map_page_to_frame(containing_address(starting_address(nf)), nf);
+    _map_page_to_frame(containing_address(starting_address(nf)), nf);
     page_entry_t *np1 = (void *)starting_address(nf);
     memset(np1, 0, sizeof(page_entry_t)*512);
     for(int i=0;i<512;i++) {
@@ -519,15 +551,18 @@ frame_t map_out_huge_pages(frame_allocator *fa) {
 
 
 
-page_table_t show_page_entry(page_table_t table, uint64_t at_index) {
+page_table_t show_page_entry(page_table_t table, uint64_t at_index, uint32_t indent) {
     page_entry_t pet = table[at_index];
     uint64_t table_address = 0x0;
     if (pet.present) {
         table_address = (uint64_t)referenced_table(pet);
+        while(indent --> 0) {
+            kprintf(" ");
+        }
         kprintf(
                 table_address ?
-                "       %03x %03x %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n":
-                "       %03x %03x      %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n",
+                "%03x %03x %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n":
+                "%03x %03x      %03b %03b  %03b   %03b  %03b %03b %03b %03b %03b\n",
                 table,
                 table_address,
                 pet.writable,
@@ -542,6 +577,8 @@ page_table_t show_page_entry(page_table_t table, uint64_t at_index) {
         if (pet.huge_page) {
             table_address = 0x0;
         }
+    } else {
+        kprintf("       %03x[%03i] not present\n", table, at_index);
     }
     return (page_table_t)table_address;
 }
@@ -555,19 +592,14 @@ void show_page_table_layout_for_address(uint64_t address) {
         p3_index(page),
         p4_index(page)
     };
-    kprintf("  The offsets in tables for this address are:\n");
-    kprintf("    p4: %03x\n"
-            "    p3: %03x\n"
-            "    p2: %03x\n"
-            "    p1: %03x\n", offs[3], offs[2], offs[1], offs[0]);
     kprintf("entry cascade: table    next     W U WTC DiC A D H G NeX\n");
     int _page = 4;
     page_table_t next = (void *)translate_address((void *)PAGE_TABLE4);
     while(next && _page) {
         _page--;
-        kprintf("  (%03i[%07i])", _page+1, offs[_page]);
-        next = show_page_entry(next, offs[_page]);
+        uint32_t chars = kprintf("  (%03i[%07i])", _page+1, offs[_page]);
+        next = show_page_entry(next, offs[_page], 15-chars);
     }
-    kprintf("the physical address associated with this virtual address is\n");
+    kprintf("the physical address associated with this virtual address is ");
     kprintf("%03x\n", translate_address((void *)address));
 }

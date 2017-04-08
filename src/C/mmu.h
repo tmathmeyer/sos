@@ -60,7 +60,7 @@ uint64_t allocate_full_page();
 frame_t translate_page(page_t);
 page_table_t sub_table_address(page_table_t, uint64_t, uint8_t *);
 physical_address translate_address(virtual_address);
-page_table_t show_page_entry(page_table_t, uint64_t);
+page_table_t show_page_entry(page_table_t, uint64_t, uint32_t);
 void show_page_table_layout_for_address(uint64_t);
 uint64_t containing_address(uint64_t);
 uint64_t starting_address(uint64_t);
@@ -75,6 +75,8 @@ void level2_memory_allocator();
 void level1_memory_allocator(frame_allocator *alloc);
 void print_frames();
 void print_pages();
+page_t find_page_no_table_creation(int);
+uint64_t get_page_index(uint8_t, virtual_address);
 
 
 frame_t map_out_huge_pages(frame_allocator *);

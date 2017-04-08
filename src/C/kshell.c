@@ -120,6 +120,11 @@ void run_cmd(char *run) {
         print_pages();
     } else if (!strncmp(run, "fsteal", 7)) {
         kprintf("stole page: %6ex\n", get_next_free_frame());
+    } else if (!strncmp(run, "nfp", 4)) {
+        kprintf("next free page = %6ex\n", find_page_no_table_creation(4)); 
+    } else if (!strncmp(run, "gpi2 0x", 7)) {
+        uint64_t a = hex2int(run+7);
+        kprintf("table address = %6ex\n", get_page_index(2, (void *)a)); 
     } else if (!strncmp(run, "palloc", 7)) {
         page_t page = allocate_full_page();
         kprintf("allocated page = %6ex\n", page);
@@ -131,6 +136,7 @@ void run_cmd(char *run) {
             uint64_t phys = hex2int(next+3);
             kprintf("mapping P%07x to F%07x\n", virt, phys);
             map_page_to_frame(virt, phys);
+            fill_missing_pages();
         } else {
             kprintf("see %05x for usage\n", "help");
         }
@@ -176,6 +182,8 @@ void run_cmd(char *run) {
                     goto noaddr;
                 }
             }
+            (void)"sometimes interrupts break this...";
+fucking:
             if (*x == ne[i] && x!=ne) {
                 i++;
             } else {
@@ -186,6 +194,9 @@ void run_cmd(char *run) {
         kprintf("%05x\n", x - stringlen(run+5));
         return;
 noaddr:
+        if (translate_address(x)) {
+            goto fucking;
+        }
         kprintf("text not found in ram [%03x]\n", x);
     } else if (!strncmp(run, "memstatus", 10)) {
         print_mem();

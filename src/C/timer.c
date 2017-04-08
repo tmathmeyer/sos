@@ -6,11 +6,7 @@
 int i = 0;
 int j = 0;
 void timer(struct interrupt_frame *frame) {
-    i++;
-    if (!(i&0x7)) {
-        j++;
-        j%=10;
-    }
+    return;
 }
 
 void set_timer_phase(int hz) {

@@ -9,6 +9,7 @@
 
 
 extern void load_idt(void);
+int kmain(struct multiboot_header *);
 
 void error_stack_dump(char *msg, char *file, uint32_t line_no) {
     kprintf("%cfs%4fs\n%4fs:%4fx\n", "ERROR: ", msg, file, line_no);
@@ -67,12 +68,10 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     level1_memory_allocator(&falloc);
     frame_t f = map_out_huge_pages(&falloc);
     level2_memory_allocator(&falloc, f);
-
 }
 
-
-
 int kmain(struct multiboot_header *multiboot_info) {
+    //still in the lower half of the kernel
     /* kio and clear screen do not need paging or heap data */
     kio_init();
     clear_screen();
@@ -86,19 +85,20 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* enable mmu related functions -> enable page fixes and heap init */
     enable_kernel_paging(multiboot_info);
-
+    
     /* interrupt enable */
     setup_IDT();
 
     /* enable the scheduler */
     init_keyboard();
-    //init_timer();
+    init_timer();
 
-    pmst();
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");
     uint8_t keycode;
     while(keycode=key_poll(), 1) {
         kshell(keycode);
     }
+
+
 }

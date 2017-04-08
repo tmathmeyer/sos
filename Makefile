@@ -41,7 +41,7 @@ $(iso): $(kernel) $(grub_cfg)
 	@cp $(kernel) build/isofiles/boot/kernel.bin
 	@cp $(grub_cfg) build/isofiles/boot/grub
 	@grub-mkrescue -d /usr/lib/grub/i386-pc -o $(iso) build/isofiles 2>/dev/null
-	@rm -r build/isofiles
+	#@rm -r build/isofiles
 
 $(kernel): $(assembly_object_files) $(linker_script) $(src_object_files)
 	@ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(src_object_files)
