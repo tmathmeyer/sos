@@ -55,69 +55,80 @@ const char *pci_vendor_lookup(uint16_t vendor_id) {
     return "";
 }
 
-static uint32_t ata_pci = 0x00000000;
-static void find_ata_pci(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
-    if ((vendorid == 0x8086) && (deviceid == 0x7010 || deviceid == 0x7111)) {
-        *((uint32_t *)extra) = device;
+pci_devtable_entry_t pci_device_lookup(uint16_t vendor_id, uint16_t dev_id) {
+    for(uint64_t i=0; i<PCI_DEVTABLE_LEN; i++) {
+        if (PciDevTable[i].VenId==vendor_id && PciDevTable[i].DevId==dev_id) {
+            return PciDevTable[i];
+        }
     }
+    pci_devtable_entry_t none = {.VenId=0, .DevId=0, .Chip="", .ChipDesc=""};
+    return none;
 }
 
-void pci_scan_hit(uint32_t dev, void * extra) {
+void print_pci_devices(uint32_t device, uint16_t vendorid, uint16_t deviceid, void *na) {
+    pci_devtable_entry_t info = pci_device_lookup(vendorid, deviceid);
+    kprintf("Device #%03i:\n"
+            "   Vendor: %03s\n"
+            "   Chip  : %03s\n"
+            "   Desc  : %03s\n",
+            device,
+            pci_vendor_lookup(vendorid),
+            info.Chip,
+            info.ChipDesc);
+}
+
+void pci_scan_hit(pci_scanner_fn_t fn, uint32_t dev, void *extra) {
     int dev_vend = (int)pci_read_field(dev, PCI_VENDOR_ID, 2);
     int dev_dvid = (int)pci_read_field(dev, PCI_DEVICE_ID, 2);
-
-    kprintf("Device Vendor is %03s\n", pci_vendor_lookup(dev_vend));
-
-    find_ata_pci(dev, dev_vend, dev_dvid, extra);
+    fn(dev, dev_vend, dev_dvid, extra);
 }
 
-void pci_scan_bus(int type, int bus, void *extra);
-void pci_scan_func(int type, int bus, int slot, int func, void * extra) {
+void pci_scan_bus(pci_scanner_fn_t, int type, int bus, void *extra);
+void pci_scan_func(pci_scanner_fn_t fn, int type, int bus, int slot, int func, void * extra) {
     uint32_t dev = pci_box_device(bus, slot, func);
     if (type == -1 || type == pci_find_type(dev)) {
-        pci_scan_hit(dev, extra);
+        pci_scan_hit(fn, dev, extra);
     }
     if (pci_find_type(dev) == PCI_TYPE_BRIDGE) {
-        pci_scan_bus(type, pci_read_field(dev, PCI_SECONDARY_BUS, 1), extra);
+        pci_scan_bus(fn, type, pci_read_field(dev, PCI_SECONDARY_BUS, 1), extra);
     }
 }
 
-void pci_scan_slot(int type, int bus, int slot, void *extra) {
+void pci_scan_slot(pci_scanner_fn_t fn, int type, int bus, int slot, void *extra) {
     uint32_t dev = pci_box_device(bus, slot, 0);
     if (pci_read_field(dev, PCI_VENDOR_ID, 2) == PCI_NONE) {
         return;
     }
-    pci_scan_func(type, bus, slot, 0, extra);
+    pci_scan_func(fn, type, bus, slot, 0, extra);
     if (!pci_read_field(dev, PCI_HEADER_TYPE, 1)) {
         return;
     }
     for (int func = 1; func < 8; func++) {
         uint32_t dev = pci_box_device(bus, slot, func);
         if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
-            pci_scan_func(type, bus, slot, func, extra);
+            pci_scan_func(fn, type, bus, slot, func, extra);
         }
     }
 }
 
-void pci_scan_bus(int type, int bus, void *extra) {
+void pci_scan_bus(pci_scanner_fn_t fn, int type, int bus, void *extra) {
     for (int slot = 0; slot < 32; ++slot) {
-        pci_scan_slot(type, bus, slot, extra);
+        pci_scan_slot(fn, type, bus, slot, extra);
     }
 }
 
-void pci_scan(int type, void *extra) {
+void pci_scan(pci_scanner_fn_t fn, int type, void *extra) {
     if ((pci_read_field(0, PCI_HEADER_TYPE, 1) & 0x80) == 0) {
-        pci_scan_bus(type,0,extra);
+        pci_scan_bus(fn, type,0,extra);
         return;
     }
-    /*
-       for (int func = 0; func < 8; ++func) {
-       uint32_t dev = pci_box_device(0, 0, func);
-       if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
-       pci_scan_bus(f, type, func, extra);
-       } else {
-       break;
-       }
-       }
-       */
+
+    for (int func = 0; func < 8; ++func) {
+        uint32_t dev = pci_box_device(0, 0, func);
+        if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
+            pci_scan_bus(fn, type, func, extra);
+        } else {
+            break;
+        }
+    }
 }

@@ -1,5 +1,3 @@
-
-
 #if 0
 
 PCIHDR.H: PCI Vendors, Devices, and Class Type information
@@ -1544,11 +1542,12 @@ typedef struct _PCI_DEVTABLE
 {
 	unsigned short	VenId ;
 	unsigned short	DevId ;
-	const char *	Chip ;
-	const char *	ChipDesc ;
+	const char      *Chip ;
+	const char      *ChipDesc ;
 }  PCI_DEVTABLE, *PPCI_DEVTABLE ;
+typedef PCI_DEVTABLE pci_devtable_entry_t;
 
-PCI_DEVTABLE	PciDevTable [] =
+PCI_DEVTABLE PciDevTable [] =
 {
 	{ 0x165C, 0x0002, "FT232BL", "FT232BL" } ,
 	{ 0x16AE, 0x1141, "SafeXcel-1141", "???" } ,

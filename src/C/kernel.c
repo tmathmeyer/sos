@@ -6,6 +6,7 @@
 #include "keyboard.h"
 #include "kshell.h"
 #include "time.h"
+#include "ata.h"
 
 
 extern void load_idt(void);
@@ -90,8 +91,9 @@ int kmain(struct multiboot_header *multiboot_info) {
     setup_IDT();
 
     /* enable the scheduler */
-    init_keyboard();
     init_timer();
+    init_keyboard();
+    ata_init();
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");

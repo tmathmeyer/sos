@@ -115,10 +115,8 @@ void run_cmd(char *run) {
         int i=0, j=11;
         kprintf("stack = %6dx\n", &i);
         int k = j/i;
-    } else if (!strncmp(run, "ata", 4)) {
-        uint32_t i = 0;
-        pci_scan(-1, &i);
-        kprintf("pci_scan_ata_device = %03i\n", i); 
+    } else if (!strncmp(run, "pci", 4)) {
+        pci_scan(print_pci_devices, -1, NULL);
     } else if (!strncmp(run, "pci_vend 0x", 11)) {
         uint16_t vendid = hex2int(run+11);
         kprintf("full vendor for [%03x] = %03s\n", vendid, pci_vendor_lookup(vendid));

@@ -22,9 +22,11 @@
 
 
 #define PCI_SECONDARY_BUS        0x19
+typedef void (*pci_scanner_fn_t)(uint32_t, uint16_t, uint16_t, void *);
 
 uint16_t pci_find_type(uint32_t);
 const char *pci_vendor_lookup(uint16_t);
-void pci_scan(int, void *);
+void pci_scan(pci_scanner_fn_t, int, void *);
+void print_pci_devices(uint32_t, uint16_t, uint16_t, void *);
 
 #endif
