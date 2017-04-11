@@ -57,6 +57,8 @@ typedef struct {
 
 
 uint64_t allocate_full_page();
+void release_full_page(uint64_t);
+void allocate_full_page_writeback(uint64_t *, uint64_t *);
 frame_t translate_page(page_t);
 page_table_t sub_table_address(page_table_t, uint64_t, uint8_t *);
 physical_address translate_address(virtual_address);

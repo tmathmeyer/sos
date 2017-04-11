@@ -12,14 +12,6 @@
 extern void load_idt(void);
 int kmain(struct multiboot_header *);
 
-void error_stack_dump(char *msg, char *file, uint32_t line_no) {
-    kprintf("%cfs%4fs\n%4fs:%4fx\n", "ERROR: ", msg, file, line_no);
-}
-
-void warn_msg(char *msg, char *file, uint32_t line_no) {
-    kprintf("%6fs%6fs%6fi%6fs%6fs\n", file, "(", line_no, ") WARN: ", msg);
-}
-
 void print_memory_area(struct memory_area *area) {
     kprintf("    start: %07x, length: %07x\n", area->base_addr, area->length);
 }

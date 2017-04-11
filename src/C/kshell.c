@@ -5,6 +5,7 @@
 #include "mmu.h"
 #include "time.h"
 #include "pci.h"
+#include "ata.h"
 
 uint8_t keymap[][128] = {
     {0},
@@ -159,10 +160,38 @@ void run_cmd(char *run) {
         } else {
             kprintf("see %05x for usage\n", "help");
         }
+    } else if (!strncmp(run, "diskread 0x", 11)) {
+        uint64_t addr = hex2int(run+11);
+        char *next = strfnd(run+11, ' ');
+        if (*next && !strncmp(next, " 0x", 3)) {
+            uint64_t size = hex2int(next+3);
+            if (size > 4095) {
+                kprintf("ret reading less data please\n");
+            } else {
+                char *buff = (char *)starting_address(allocate_full_page());
+                read_disk(addr, size, buff);
+                for(int j=0;j<size;j++) {
+                    kprintf("%07c", buff[j]);
+                }
+                kprintf("\n");
+                release_full_page(containing_address((uint64_t)buff));
+            }
+
+        } else {
+            kprintf("see %05x for usage\n", "help");
+        }
+    } else if (!strncmp(run, "diskwrite 0x", 12)) {
+        uint64_t addr = hex2int(run+12);
+        char *buff = (char *)starting_address(allocate_full_page());
+        read_disk(addr, 512, buff);
+        memcpy(buff, "  WRITE", 7);
+        write_disk(addr, 7, buff);
+        release_full_page(containing_address((uint64_t)buff));
     } else if (!strncmp(run, "write 0x", 8)) {
         char *addr = (char *)hex2int(run+8);
         kprintf("writing to %07x\n", addr);
         char *next = strfnd(run+7, ' ');
+        next++;
         while (next && *next) {
             *addr++ = *next++;
         }
@@ -210,6 +239,7 @@ noaddr:
         kprintf("  kmap   [0xA1 0xA2]:   map virtual addr1 to physical addr2\n");
         kprintf("  read   [0xADDR 0xN]:  read N bytes from ADDR\n");
         kprintf("  write  [0xADDR text]: write [text] to ADDR\n");
+        kprintf("  writemarkertext\n");
         kprintf("  help:                 print this information\n");
     } else {
         kprintf("INVALID COMMAND\n");

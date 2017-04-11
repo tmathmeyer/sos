@@ -239,12 +239,26 @@ void _map_page_to_frame(uint64_t vpage, uint64_t pframe) {
     p1[p1_index].writable = 1;
 }
 
+void release_full_page(uint64_t vpage) {
+    uint64_t frame = translate_page(vpage);
+    release_frame(frame);
+    release_page(vpage);
+}
+
 /* grab a new page, already mmu mapped */
 uint64_t allocate_full_page() {
     uint64_t page = get_next_free_page();
     uint64_t frame = get_next_free_frame();
     map_page_to_frame(page, frame);
     return page;
+}
+
+void allocate_full_page_writeback(uint64_t *virt, uint64_t *phys) {
+    *virt = get_next_free_page();
+    *phys = get_next_free_frame();
+    map_page_to_frame(*virt, *phys);
+    *virt = starting_address(*virt);
+    *phys = starting_address(*phys);
 }
 
 /* translate a virtual address to a physical one */

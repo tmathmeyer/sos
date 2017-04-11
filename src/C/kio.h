@@ -15,6 +15,10 @@ static inline void outl(uint16_t port, uint32_t val){
     asm volatile ( "outl %0, %1" : : "a"(val), "Nd"(port) );
 }
 
+static inline void outsm(uint16_t port, uint8_t *data, uint64_t size) {
+    asm volatile ("rep outsw" : "+S" (data), "+c" (size) : "d" (port));
+}
+
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));

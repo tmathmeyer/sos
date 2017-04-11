@@ -26,6 +26,11 @@ static inline uint32_t pci_get_addr(uint32_t device, int field) {
         | ((field) & 0xFC);
 }
 
+void pci_write_field(uint32_t device, int field, int size, uint32_t value) {
+    outl(PCI_ADDRESS_PORT, pci_get_addr(device, field));
+    outl(PCI_VALUE_PORT, value);
+}
+
 uint32_t pci_read_field(uint32_t device, int field, int size) {
     outl(PCI_ADDRESS_PORT, pci_get_addr(device, field));
 

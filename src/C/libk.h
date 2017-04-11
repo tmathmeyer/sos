@@ -31,7 +31,7 @@ enum vga_color {
 
 void *memset(void *p, int b, size_t n);
 void *memcpy(void *dest, void *src, size_t bytes);
-void *page_frame_copy(void *src, size_t spf, void *dest, size_t dpf, size_t bytes);
+uint64_t strlen(char *c);
 uint64_t stringlen(char *);
 
 
@@ -41,10 +41,15 @@ void clear_screen(void);
 #define kprintf(...) _kprintf (0,0,0,0,0,0,0,0,0,0,__VA_ARGS__)
 uint32_t _kprintf(int,int,int,int,int,int,int,int,int,int, const char fmt[], ...);
 uint32_t kputs(char *);
-#endif
-
-#define ERROR(msg) do{error_stack_dump((msg), __FILE__, __LINE__);}while(0)
-void error_stack_dump(char *, char *, uint32_t);
 
 #define WARN(msg) do{warn_msg((msg), __FILE__, __LINE__);}while(0)
-void warn_msg(char *, char *, uint32_t);
+static inline void warn_msg(char *msg, char *file, uint32_t line_no) {
+    kprintf("%6fs%6fs%6fi%6fs%6fs\n", file, "(", line_no, ") WARN: ", msg);
+}
+
+#define ERROR(msg) do{error_stack_dump((msg), __FILE__, __LINE__);}while(0)
+static inline void error_stack_dump(char *msg, char *file, uint32_t line_no) {
+    kprintf("%cfs%4fs\n%4fs:%4fx\n", "ERROR: ", msg, file, line_no);
+}
+
+#endif
