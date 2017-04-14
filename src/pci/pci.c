@@ -53,8 +53,8 @@ uint16_t pci_find_type(uint32_t dev) {
 
 const char *pci_vendor_lookup(uint16_t vendor_id) {
     for (unsigned int i = 0; i < PCI_VENTABLE_LEN; ++i) {
-        if (PciVenTable[i].VenId == vendor_id) {
-            return PciVenTable[i].VenFull;
+        if (pci_vendor_table[i].ven_id == vendor_id) {
+            return pci_vendor_table[i].ven_full;
         }
     }
     return "";
@@ -62,11 +62,11 @@ const char *pci_vendor_lookup(uint16_t vendor_id) {
 
 pci_devtable_entry_t pci_device_lookup(uint16_t vendor_id, uint16_t dev_id) {
     for(uint64_t i=0; i<PCI_DEVTABLE_LEN; i++) {
-        if (PciDevTable[i].VenId==vendor_id && PciDevTable[i].DevId==dev_id) {
-            return PciDevTable[i];
+        if (pci_device_table[i].ven_id==vendor_id && pci_device_table[i].dev_id==dev_id) {
+            return pci_device_table[i];
         }
     }
-    pci_devtable_entry_t none = {.VenId=0, .DevId=0, .Chip="", .ChipDesc=""};
+    pci_devtable_entry_t none = {.ven_id=0, .dev_id=0, .chip="", .chip_desc=""};
     return none;
 }
 
@@ -78,8 +78,8 @@ void print_pci_devices(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
             "   Desc  : %03s\n",
             device,
             pci_vendor_lookup(vendorid),
-            info.Chip,
-            info.ChipDesc);
+            info.chip,
+            info.chip_desc);
 }
 
 void pci_scan_hit(pci_scanner_fn_t fn, uint32_t dev, void *extra) {
