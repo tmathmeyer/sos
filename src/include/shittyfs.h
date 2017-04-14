@@ -5,19 +5,13 @@
 #ifdef STDLIB
 #include <stdint.h>
 #else
-#include <ktype.h>
+#include "ktype.h"
+#include "ata.h"
 #endif
 
 
 #define CHUNK_SIZE 512
 #define VERSION 0x1
-
-union {
-	uint64_t number;
-	uint8_t __txt[8];
-} magic = {
-	.__txt = "SHiTTYfs"
-};
 
 typedef struct {
 	uint8_t __raw[512];
@@ -25,6 +19,7 @@ typedef struct {
 
 typedef struct _fs_t{
 	uint64_t magic_number;
+	uint64_t total_chunk_count;
 	void *underlying_data;
 	void (*chunk_read)(struct _fs_t *fs, uint64_t chunk_no, void *data);
 	void (*chunk_write)(struct _fs_t *fs, uint64_t chunk_no, void *data);
@@ -71,6 +66,16 @@ typedef struct {
 	uint8_t data[496];
 }__attribute__((packed)) file_chunk_t;
 
-fs_t mkfs_memory(uint8_t *, uint64_t);
+
+fs_t get_fs_memory(uint8_t *, uint64_t);
+void mkfs(fs_t *fs);
+bool detectfs(fs_t *fs);
+uint64_t file_read(fs_t *, char *, void *, uint64_t);
+
+void file_write(fs_t *, char *, void *, uint64_t);
+
+#ifndef STDLIB
+fs_t get_fs_ata(struct ata_device *);
+#endif
 
 #endif

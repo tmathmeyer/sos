@@ -2,15 +2,50 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../include/shittyfs.h"
 #else
 #include "ktype.h"
 #include "libk.h"
 #include "kio.h"
+#include "shittyfs.h"
 #endif
 
-#include "shittyfs.h"
+union {
+	uint64_t number;
+	uint8_t __txt[8];
+} magic = {
+	.__txt = "SHiTTYfs"
+};
 
-#define min(x, y) (((x)>(y))?(y):(x))
+bool detectfs(fs_t *fs) {
+	system_desc_chunk_t system_chunk;
+	fs->chunk_read(fs, 0, &system_chunk);
+
+	if (system_chunk.magic_number != magic.number) {
+		return false;
+	}
+
+	if (system_chunk.version != VERSION) {
+		return false;
+	}
+
+	return true;
+}
+
+void mkfs(fs_t *fs) {
+	system_desc_chunk_t system_chunk = {
+		.__padding = {0}
+	};
+
+	system_chunk.magic_number = magic.number;
+	system_chunk.version = VERSION;
+	system_chunk.table_chunk_count = 0;
+	system_chunk.file_chunk_count = 0;
+	system_chunk.total_chunk_count = fs->total_chunk_count;
+
+	fs->chunk_write(fs, 0, &system_chunk);
+	
+}
 
 uint64_t checksum(uint8_t *data, uint64_t bytes) {
 	uint64_t result = 0;
@@ -87,7 +122,7 @@ void sfs_file_write(fs_t *fs, char *name, void *data, uint64_t len) {
 	uint64_t backup_len = len;
 
 	uint64_t file_chunks_needed = (len + CHUNK_SIZE - 17) / (CHUNK_SIZE - 16);
-
+	
 	uint64_t free_chunks = system_chunk.total_chunk_count - 
 			(system_chunk.table_chunk_count + system_chunk.file_chunk_count);
 
@@ -103,7 +138,7 @@ void sfs_file_write(fs_t *fs, char *name, void *data, uint64_t len) {
 	uint64_t prev_chunk_no = 0;
 	for(int i=1; i<=file_chunks_needed; i++) {
 		file_chunk_t test;
-		uint64_t cid = system_chunk.total_chunk_count-i-2;
+		uint64_t cid = system_chunk.total_chunk_count-i;
 		fs->chunk_read(fs, cid, &test);
 		if (!is_valid_occupied_file_chunk(test)) {
 			if (!first_chunk_no) {
@@ -191,7 +226,7 @@ void memory_chunk_write(fs_t *fs, uint64_t chunk_no, void *data) {
 	memcpy(write_to, data, CHUNK_SIZE);
 }
 
-fs_t mkfs_memory(uint8_t *buffer, uint64_t bytes) {
+fs_t get_fs_memory(uint8_t *buffer, uint64_t bytes) {
 	fs_t result;
 	result.magic_number = magic.number;
 	result.underlying_data = buffer;
@@ -199,19 +234,7 @@ fs_t mkfs_memory(uint8_t *buffer, uint64_t bytes) {
 	result.chunk_write = memory_chunk_write;
 	result.file_read = sfs_file_read;
 	result.file_write = sfs_file_write;
-
-	system_desc_chunk_t system_chunk = {
-		.__padding = {0}
-	};
-
-	system_chunk.magic_number = magic.number;
-	system_chunk.version = VERSION;
-	system_chunk.table_chunk_count = 0;
-	system_chunk.file_chunk_count = 0;
-	system_chunk.total_chunk_count = bytes / CHUNK_SIZE;
-
-	result.chunk_write(&result, 0, &system_chunk);
-	
+	result.total_chunk_count = bytes / CHUNK_SIZE;
 	return result;
 }
 
@@ -229,8 +252,30 @@ void file_write(fs_t *fs, char *name, void *data, uint64_t len) {
 
 
 
+#ifndef STDLIB
 
-#ifdef STDLIB
+void ata_chunk_read(fs_t *fs, uint64_t chunk_no, void *data) {
+	ata_device_read_sector(fs->underlying_data, chunk_no, data);
+}
+
+void ata_chunk_write(fs_t *fs, uint64_t chunk_no, void *data) {
+	ata_device_write_sector_retry(fs->underlying_data, chunk_no, data);
+}
+
+fs_t get_fs_ata(struct ata_device *dev) {
+	fs_t result;
+	result.magic_number = magic.number;
+	result.underlying_data = dev;
+	result.chunk_read = ata_chunk_read;
+	result.chunk_write = ata_chunk_write;
+	result.file_read = sfs_file_read;
+	result.file_write = sfs_file_write;
+	result.total_chunk_count = ata_max_offset(dev) / ATA_SECTOR_SIZE;
+	return result;
+}
+
+#else
+
 void print_filesystem_debug(fs_t *fs) {
 	system_desc_chunk_t s;
 	fs->chunk_read(fs, 0, &s);
@@ -267,7 +312,7 @@ void print_filesystem_debug(fs_t *fs) {
 int main() {
 	uint8_t *mem = malloc(CHUNK_SIZE * 2000);
 
-	fs_t filesystem = mkfs_memory(mem, CHUNK_SIZE * 2000);
+	fs_t filesystem = get_fs_memory(mem, CHUNK_SIZE * 2000);
 	char *LOLFILE = "Lorem Ipsem is one hell of a drug\n"
 					"  by Ted Meyer\n"
 					"\n"

@@ -5,12 +5,16 @@
 #include "kio.h"
 #include "mmu.h"
 #include "lock.h"
+#include "shittyfs.h"
+#include "devices.h"
 
 static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
 static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
 static struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
 static struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
 
+static char ATA_dev_name[4];
+static char ATAPI_dev_name[4];
 
 void find_ata_pci(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
     if ((vendorid == 0x8086) && (deviceid == 0x7010 || deviceid == 0x7111)) {
@@ -63,9 +67,7 @@ static int ata_wait(struct ata_device *dev, int advanced) {
     return 0;
 }
 
-static void ata_device_init(struct ata_device *dev, uint32_t ata_pci) {
-    kprintf("Initializing IDE device on bus %03x\n", dev->io_base);
-
+static bool ata_device_init(struct ata_device *dev, uint32_t ata_pci) {
     outb(dev->io_base + 1, 1);
     outb(dev->control, 0);
 
@@ -76,7 +78,6 @@ static void ata_device_init(struct ata_device *dev, uint32_t ata_pci) {
     ata_io_wait(dev);
 
     int status = inb(dev->io_base + ATA_REG_COMMAND);
-    kprintf("Device status: %03x\n", status);
 
     ata_wait(dev, 0);
 
@@ -96,22 +97,14 @@ static void ata_device_init(struct ata_device *dev, uint32_t ata_pci) {
 
     dev->is_atapi = 0;
 
-    kprintf("Device Name:  %03s\n", dev->identity.model);
-    kprintf("Sectors (48/24): %03x\n", dev->identity.sectors_48, dev->identity.sectors_28);
-
-    kprintf("Enabling Disk Direct Memory address\n");
     allocate_full_page_writeback((uint64_t *)&dev->dma_prdt, (uint64_t *)&dev->dma_prdt_phys);
     allocate_full_page_writeback((uint64_t *)&dev->dma_start, (uint64_t *)&dev->dma_start_phys);
-
-    kprintf("  Putting prdt    at %03x (%03x phys)\n", dev->dma_prdt, dev->dma_prdt_phys);
-    kprintf("  Putting prdt[0] at %03x (%03x phys)\n", dev->dma_start, dev->dma_start_phys);
 
     dev->dma_prdt[0].offset = dev->dma_start_phys;
     dev->dma_prdt[0].bytes = 512;
     dev->dma_prdt[0].last = 0x8000;
 
     uint16_t command_reg = pci_read_field(ata_pci, PCI_COMMAND, 4);
-    kprintf("COMMAND register before: %04x\n", command_reg);
     if (!(command_reg & (1 << 2))) {
         command_reg |= (1 << 2); /* bit 2 */
         pci_write_field(ata_pci, PCI_COMMAND, 4, command_reg);
@@ -119,17 +112,17 @@ static void ata_device_init(struct ata_device *dev, uint32_t ata_pci) {
     }
 
     dev->bar4 = pci_read_field(ata_pci, PCI_BAR4, 4);
-    kprintf("BAR4: %04x\n", dev->bar4);
 
     if (dev->bar4 & 0x00000001) {
         dev->bar4 = dev->bar4 & 0xFFFFFFFC;
     } else {
         kprintf("Error: Disks cannot be setup\n");
-        return; /* No DMA because we're not sure what to do here */
+        return false; /* No DMA because we're not sure what to do here */
     }
+    return true;
 }
 
-static void atapi_device_init(struct ata_device *dev, uint32_t ata_dev) {
+static bool atapi_device_init(struct ata_device *dev, uint32_t ata_dev) {
     dev->is_atapi = 1;
 
     outb(dev->io_base + 1, 1);
@@ -142,7 +135,6 @@ static void atapi_device_init(struct ata_device *dev, uint32_t ata_dev) {
     ata_io_wait(dev);
 
     int status = inb(dev->io_base + ATA_REG_COMMAND);
-    kprintf("Device status: %03x\n", status);
 
     ata_wait(dev, 0);
 
@@ -158,8 +150,6 @@ static void atapi_device_init(struct ata_device *dev, uint32_t ata_dev) {
         ptr[i+1] = ptr[i];
         ptr[i] = tmp;
     }
-
-    kprintf("Device Name:  %03s\n", dev->identity.model);
 
     /* Detect medium */
     atapi_command_t command;
@@ -219,19 +209,19 @@ static void atapi_device_init(struct ata_device *dev, uint32_t ata_dev) {
     dev->atapi_sector_size = blocks;
 
     kprintf("Finished! LBA = %03x; block length = %03x\n", lba, blocks);
-    return;
+    return true;
 
 atapi_error_read:
-    kprintf("ATAPI error; no medium?\n");
-    return;
+    kprintf("ATAPI error; no medium (disk player empty?)\n");
+    return false;
 
 atapi_error:
     kprintf("ATAPI early error; unsure\n");
-    return;
+    return false;
 
 }
 
-static uint64_t ata_max_offset(struct ata_device *dev) {
+uint64_t ata_max_offset(struct ata_device *dev) {
     uint64_t sectors = dev->identity.sectors_48;
     if (!sectors) {
         /* Fall back to sectors_28 */
@@ -242,7 +232,7 @@ static uint64_t ata_max_offset(struct ata_device *dev) {
 }
 
 lock_t ata_lock;
-static void ata_device_read_sector(struct ata_device *dev, uint32_t lba, uint8_t *buf) {
+void ata_device_read_sector(struct ata_device *dev, uint32_t lba, uint8_t *buf) {
     uint16_t bus = dev->io_base;
     uint8_t slave = dev->slave;
 
@@ -308,7 +298,7 @@ static void ata_device_read_sector(struct ata_device *dev, uint32_t lba, uint8_t
     spin_unlock(&ata_lock);
 }
 
-static void ata_device_write_sector(struct ata_device *dev, uint32_t lba, uint8_t * buf) {
+void ata_device_write_sector(struct ata_device *dev, uint32_t lba, uint8_t *buf) {
     uint16_t bus = dev->io_base;
     uint8_t slave = dev->slave;
 
@@ -349,7 +339,7 @@ static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, size_t size) {
     return 0;
 }
 
-static void ata_device_write_sector_retry(struct ata_device *dev, uint32_t lba, uint8_t *buf) {
+void ata_device_write_sector_retry(struct ata_device *dev, uint32_t lba, uint8_t *buf) {
     char read_buf[ATA_SECTOR_SIZE]; /* TODO: put this on the heap! */
     do {
         ata_device_write_sector(dev, lba, buf);
@@ -378,8 +368,6 @@ static uint32_t write_ata(struct ata_device *dev, uint32_t offset, uint32_t size
         char tmp[ATA_SECTOR_SIZE]; /* TODO: put this on the heap! */
         ata_device_read_sector(dev, start_block, (uint8_t *)tmp);
 
-        kprintf("Writing first block\n");
-
         memcpy((void *)((uintptr_t)tmp + (offset % ATA_SECTOR_SIZE)), buffer, prefix_size);
         ata_device_write_sector_retry(dev, start_block, (uint8_t *)tmp);
 
@@ -392,8 +380,6 @@ static uint32_t write_ata(struct ata_device *dev, uint32_t offset, uint32_t size
 
         char tmp[ATA_SECTOR_SIZE]; /* TODO: put this on the heap! */
         ata_device_read_sector(dev, end_block, (uint8_t *)tmp);
-
-        kprintf("Writing last block\n");
 
         memcpy(tmp, (void *)((uintptr_t)buffer + size - postfix_size), postfix_size);
 
@@ -470,39 +456,35 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
         return 0;
     }
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
-        kprintf("Detected PATA (RWM) device at io-base %03x, control %03x, slave %03x\n",
-                dev->io_base,
-                dev->control,
-                dev->slave);
-        ata_device_init(dev, ata_dev);
-        kprintf("\n");
+        if (ata_device_init(dev, ata_dev)) {
+            put_device(ATA_dev_name, get_fs_ata(dev));
+            ATA_dev_name[2]++;
+        }
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) ||
             (cl == 0x69 && ch == 0x96)) {
-        kprintf("Detected ATAPI (ROM) device at io-base %03x, control %03x, slave %03x\n",
-                dev->io_base,
-                dev->control,
-                dev->slave);
-        atapi_device_init(dev, ata_dev);
+        if (atapi_device_init(dev, ata_dev)) {
+            put_device(ATAPI_dev_name, get_fs_ata(dev));
+            ATAPI_dev_name[2]++;
+        }
         return 2;
     }
-
-    kprintf("Cannot parse ATAPI, SATA, or SATAPI devices yet\n\n");
     return 0;
 }
 
-uint64_t read_disk(uint64_t addr, uint64_t chars, uint8_t *data) {
+uint64_t read_disk_raw(uint64_t addr, uint64_t chars, uint8_t *data) {
     return read_ata(&ata_primary_master, addr, chars, data);
 }
 
-uint64_t write_disk(uint64_t addr, uint64_t chars, uint8_t *data) {
+uint64_t write_disk_raw(uint64_t addr, uint64_t chars, uint8_t *data) {
     return write_ata(&ata_primary_master, addr, chars, data);
 }
 
 void ata_init() {
     uint32_t ata_dev = 0;
+    memcpy(ATA_dev_name, "HDA", 4);
+    memcpy(ATAPI_dev_name, "EDA", 4);
     pci_scan(&find_ata_pci, -1, &ata_dev);
-    kprintf("ATA device ID (on PCI bus): %03i\n", ata_dev);
 
     set_interrupt_handler(0x2E, ata_irq);
     set_interrupt_handler(0x2F, ata_irq);
@@ -512,4 +494,3 @@ void ata_init() {
     ata_device_detect(&ata_secondary_master, ata_dev);
     ata_device_detect(&ata_secondary_slave, ata_dev);
 }
-

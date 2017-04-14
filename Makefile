@@ -1,3 +1,8 @@
+######
+#
+# This stuff is all for building the kernel itself
+#
+######
 kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64
 arch ?= x86_64
 
@@ -7,7 +12,7 @@ ISO := $(BUILD)/os.iso
 LINKER_SCRIPT := src/asm/$(arch)/linker.ld
 GRUB_CFG := src/grub/grub.cfg
 ROOTFS := rootfs
-
+SFSDISK := $(BUILD)/sfsdisk
 
 C_SRC := $(shell find $(SOURCEDIR) -name '*.c')
 C_OBJ := $(patsubst ./src/%, $(BUILD)/%, $(C_SRC:%.c=%.o))
@@ -15,14 +20,17 @@ ASM_SRC := $(wildcard src/asm/$(arch)/*.asm)
 ASM_OBJ := $(patsubst src/asm/$(arch)/%.asm, \
 	build/asm/$(arch)/%.o, $(ASM_SRC))
 
-qemu: $(ISO)
-	@qemu-system-x86_64 -m 512M -hda $(ISO)
+qemu: $(ISO) $(SFSDISK)
+	@qemu-system-x86_64 -m 512M -hda $(ISO) -hdb $(SFSDISK)
 
 bochs: $(ISO)
 	@bochs -q
 
-debugq: $(ISO)
-	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO)
+debugq: $(ISO) $(SFSDISK)
+	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK)
+
+$(SFSDISK): 
+	dd if=/dev/zero of=$@  bs=200K  count=1
 
 $(KERNEL): $(C_OBJ) $(ASM_OBJ)
 	@ld -n -T $(LINKER_SCRIPT) -o $(KERNEL) $(C_OBJ) $(ASM_OBJ)
@@ -49,3 +57,21 @@ $(ISO): $(KERNEL) $(GRUB_CFG)
 
 clean:
 	rm -rf build
+
+
+
+
+
+
+
+
+
+
+#####
+#
+# This stuff is for building the fuse system
+#
+#####
+fuse: src/fs/shittyfs.c src/include/shittyfs.h
+	mkdir -p $(BUILD)
+	gcc -DSTDLIB src/fs/shittyfs.c -o $(BUILD)/fuse

@@ -7,6 +7,8 @@
 #include "kshell.h"
 #include "time.h"
 #include "ata.h"
+#include "devices.h"
+#include "shittyfs.h"
 
 
 extern void load_idt(void);
@@ -63,9 +65,13 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
     level2_memory_allocator(&falloc, f);
 }
 
+void print_discovered_fs(fs_t *fs, char *name) {
+    if (detectfs(fs)) {
+        kprintf("discovered a filesystem on device %05s\n", name);
+    }
+}
+
 int kmain(struct multiboot_header *multiboot_info) {
-    //still in the lower half of the kernel
-    /* kio and clear screen do not need paging or heap data */
     kio_init();
     clear_screen();
 
@@ -82,10 +88,19 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* interrupt enable */
     setup_IDT();
 
+    /* enable block device mappings */
+    dev_init();
+
     /* enable the scheduler */
     init_timer();
+
+    /* enable the keyboard */
     init_keyboard();
+
+    /* scan for ata devices on pci bug*/
     ata_init();
+
+    each_device(print_discovered_fs);
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");

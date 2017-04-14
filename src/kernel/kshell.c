@@ -6,6 +6,7 @@
 #include "time.h"
 #include "pci.h"
 #include "ata.h"
+#include "devices.h"
 
 uint8_t keymap[][128] = {
     {0},
@@ -125,12 +126,41 @@ void run_cmd(char *run) {
         print_frames();
     } else if (!strncmp(run, "pages", 6)) {
         print_pages();
+    } else if (!strncmp(run, "devices", 8)) {
+        list_devices();
     } else if (!strncmp(run, "fsteal", 7)) {
         kprintf("stole page: %6ex\n", get_next_free_frame());
     } else if (!strncmp(run, "nfp", 4)) {
         kprintf("next free page = %6ex\n", find_page_no_table_creation(4)); 
     } else if (!strncmp(run, "time", 5)) {
         show_time();
+    } else if (!strncmp(run, "mkfs", 4)) {
+        kprintf("Getting device: %04s\n", run+5);
+        fs_t *fs = get_device(run+5);
+        if (fs) {
+            mkfs(fs);
+        } else {
+            kprintf("Device not present!\n");
+        }
+    } else if (!strncmp(run, "writefs", 7)) {
+        kprintf("Getting device: %04s\n", run+8);
+        fs_t *fs = get_device(run+8);
+        if (fs) {
+            char *content = "THIS is A TEST OF THE FILESYSTEM";
+            file_write(fs, "TEST", content, strlen(content));
+        } else {
+            kprintf("Device not present!\n");
+        }
+    } else if (!strncmp(run, "readfs", 6)) {
+        kprintf("Getting device: %04s\n", run+7);
+        fs_t *fs = get_device(run+7);
+        if (fs) {
+            char content[100] = {0};
+            file_read(fs, "TEST", content, 100);
+            kprintf("MSG = %03s\n", content);
+        } else {
+            kprintf("Device not present!\n");
+        }
     } else if (!strncmp(run, "gpi2 0x", 7)) {
         uint64_t a = hex2int(run+7);
         kprintf("table address = %6ex\n", get_page_index(2, (void *)a)); 
@@ -169,7 +199,7 @@ void run_cmd(char *run) {
                 kprintf("ret reading less data please\n");
             } else {
                 char *buff = (char *)starting_address(allocate_full_page());
-                read_disk(addr, size, buff);
+                read_disk_raw(addr, size, buff);
                 for(int j=0;j<size;j++) {
                     kprintf("%07c", buff[j]);
                 }
@@ -183,9 +213,9 @@ void run_cmd(char *run) {
     } else if (!strncmp(run, "diskwrite 0x", 12)) {
         uint64_t addr = hex2int(run+12);
         char *buff = (char *)starting_address(allocate_full_page());
-        read_disk(addr, 512, buff);
+        read_disk_raw(addr, 512, buff);
         memcpy(buff, "  WRITE", 7);
-        write_disk(addr, 7, buff);
+        write_disk_raw(addr, 7, buff);
         release_full_page(containing_address((uint64_t)buff));
     } else if (!strncmp(run, "write 0x", 8)) {
         char *addr = (char *)hex2int(run+8);

@@ -29,6 +29,8 @@ enum vga_color {
     COLOR_WHITE = 15,
 };
 
+#define min(x, y) (((x)>(y))?(y):(x))
+
 void *memset(void *p, int b, size_t n);
 void *memcpy(void *dest, void *src, size_t bytes);
 uint64_t strlen(char *c);
