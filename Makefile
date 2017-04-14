@@ -1,55 +1,51 @@
-
-SRC_DFS := -DMM_KERNEL
-
+kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64
 arch ?= x86_64
-kernel := build/kernel.bin
-iso := build/os.iso
-rootfs := rootfs
 
-linker_script := src/asm/$(arch)/linker.ld
-grub_cfg := src/grub/grub.cfg
-src_source_files := $(wildcard src/C/*.c)
-src_object_files := $(patsubst src/C/%.c, \
-	build/obj/%.o, $(src_source_files))
-assembly_source_files := $(wildcard src/asm/$(arch)/*.asm)
-assembly_object_files := $(patsubst src/asm/$(arch)/%.asm, \
-	build/asm/$(arch)/%.o, $(assembly_source_files))
+BUILD := build
+KERNEL := $(BUILD)/kernel.bin
+ISO := $(BUILD)/os.iso
+LINKER_SCRIPT := src/asm/$(arch)/linker.ld
+GRUB_CFG := src/grub/grub.cfg
+ROOTFS := rootfs
 
-.PHONY: all clean run iso
 
-all: qemu
+C_SRC := $(shell find $(SOURCEDIR) -name '*.c')
+C_OBJ := $(patsubst ./src/%, $(BUILD)/%, $(C_SRC:%.c=%.o))
+ASM_SRC := $(wildcard src/asm/$(arch)/*.asm)
+ASM_OBJ := $(patsubst src/asm/$(arch)/%.asm, \
+	build/asm/$(arch)/%.o, $(ASM_SRC))
 
-debug: qemu-debug
+qemu: $(ISO)
+	@qemu-system-x86_64 -m 512M -hda $(ISO)
 
-kernel: $(kernel)
+bochs: $(ISO)
+	@bochs -q
 
-clean:
-	@rm -fr build
+debugq: $(ISO)
+	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO)
 
-qemu-debug: $(iso)
-	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(iso)
+$(KERNEL): $(C_OBJ) $(ASM_OBJ)
+	@ld -n -T $(LINKER_SCRIPT) -o $(KERNEL) $(C_OBJ) $(ASM_OBJ)
+	@echo ld [objects] -o $(KERNEL)
 
-qemu: $(iso)
-	@qemu-system-x86_64 -m 512M -hda $(iso)
+$(BUILD)/%.o: src/%.c 
+	@mkdir -p $(shell dirname $@)
+	@gcc $(kernel_flags) -c $< -o $@
+	@echo gcc -c $<
 
-iso: $(iso)
-
-$(iso): $(kernel) $(grub_cfg)
-	@mkdir -p build/isofiles/boot/grub
-	@mkdir -p build/isofiles/root
-	@cp -R $(rootfs)/* build/isofiles/root/
-	@cp $(kernel) build/isofiles/boot/kernel.bin
-	@cp $(grub_cfg) build/isofiles/boot/grub
-	@grub-mkrescue -d /usr/lib/grub/i386-pc -o $(iso) build/isofiles 2>/dev/null
-	#@rm -r build/isofiles
-
-$(kernel): $(assembly_object_files) $(linker_script) $(src_object_files)
-	@ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(src_object_files)
-
-build/asm/$(arch)/%.o: src/asm/$(arch)/%.asm
+$(BUILD)/asm/$(arch)/%.o: src/asm/$(arch)/%.asm
 	@mkdir -p $(shell dirname $@)
 	@nasm -felf64 $< -o $@
+	@echo nasm -felf64 $<
 
-build/obj/%.o: src/C/%.c
-	@mkdir -p $(shell dirname $@)
-	@gcc -fno-stack-protector -m64 -c $< -o $@ $(SRC_DFS)
+$(ISO): $(KERNEL) $(GRUB_CFG)
+	@mkdir -p build/isofiles/boot/grub
+	@mkdir -p build/isofiles/root
+	@cp -R $(ROOTFS)/* build/isofiles/root/
+	@cp $(KERNEL) build/isofiles/boot/kernel.bin
+	@cp $(GRUB_CFG) build/isofiles/boot/grub
+	@grub-mkrescue -d /usr/lib/grub/i386-pc -o $(ISO) build/isofiles 2>/dev/null
+	@echo grub-mkrescue -o $(ISO)
+
+clean:
+	rm -rf build

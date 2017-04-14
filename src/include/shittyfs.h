@@ -5,7 +5,7 @@
 #ifdef STDLIB
 #include <stdint.h>
 #else
-#include "../C/ktype.h"
+#include <ktype.h>
 #endif
 
 

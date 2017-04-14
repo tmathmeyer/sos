@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 #else
-#include "../C/ktype.h"
-#include "../C/libk.h"
-#include "../C/kio.h"
+#include "ktype.h"
+#include "libk.h"
+#include "kio.h"
 #endif
 
 #include "shittyfs.h"
