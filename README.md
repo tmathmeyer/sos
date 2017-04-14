@@ -1,26 +1,31 @@
-# sos, the shitty operating system ...---...
+# SOS (Shitty OS)
+SOS, often stylized $0$, S0S, sos, SoS, and trashOS, is an operating system built 100% from scratch without relying on anything at all, except a compiler, and currently grub (but grub will be going away soon).
 
-##Building:
-sos ONLY targets x86_64. There may be arm support in the future, but there will never be support for 32 bit evil.
-because sos only targets one architecture and it is the same architecture that I build on, there is no need for a cross compiler; this of course means that you need to build sos on another x64 machine (or go through xcomp hell). Despite OSDevWiki's insistence that kernels _NEED_ a cross compiler, that is total bullshit; as long as no system libraries are included or linked, there is no problem. If you've degenerated to the point of writing hobby kernels, you might as well just drink all the coolaid and write every single line of code yourself.
+## Project status
+Currently active development, exclusively as a hobby / learning exercise.
+ - [x] Page table allocator
+ - [ ] Arbitrary size allocator
+ - [x] Keyboard handler and small "shell"
+ - [x] Custom filesystem (sfs, the shitty filesystem)
+ - [ ] Support for a real filesystem
+ - [ ] A real shell (CLIT = Command Line Interface Tool)
 
-Right. Back to building instructions. There are three ways to build / test sos. 
- - Hardware: run ```make iso``` then plug in a flash drive and then run ```sudo dd bs=4M if=build/os.iso of=/dev/sdX status=progress && sync```, then reboot your computer and select your flash drive in the boot menu. do NOT flash this onto your hard drive
- - qemu: If you want to just play around with sos, run ```make```. this will altomatically build sos and launch qemu with 512 megs of ram. if you want to get a trace from qemu if youre getting crashes, run ```make debug```.
- - bochs: If you _actually_ want to debug things like an adult, run ```make kernel``` then run ```bochs -q```. Also without VERY good reason, I will not accept any pull requests to bochsrc.txt.
- 
-##Contributing:
-Contributions, especially bug fixes, are welcome. Large features that implement significant chunks are also welcome, but I probably wont accept them unless you talk to me about it before hand. The point of this kernel is for my own edification; if other people write a bunch of mystery code then I need to go through it and read it, and I do not have that kind of time usually since I am at work. Like I mentioned above in the building instructions, I do have a few rules for contributing:
- - all contributions are GPL2
- - do not use tabs
- - do not use if/for/while/else, etc expressions without curly braces. there will be no goto fail; here, only much worse bugs.
- - comments are nice, but not super necessary. I might ask for some though.
- - all curly braces for if/for/while/else/functions are on the same line
- - do not use tabs
- - do not use tabs
- - do not change the bochsrc.txt file unless you have a very good reason
+## Building requirements
+ - A 64 bit version of GCC, preferably the latest one. I can't guarantee that this works on any version of GCC prior to 6.3.1. This means it probably won't build on whatever older version of ubuntu you're using. If you're curious about a cross compiler, read the last section.
+ - NASM 64 bit. No guarantee that this will work on a version older than 2.12.02. Again, it probably won't build if you dont live in at least 2017. 
 
- ##TODO list:
- - filesystem
- - text editor
- - compiler
+## Building instructions
+| Make Target   | Description  |
+| ------------- | ------------ |
+| make qemu     | Builds the whole OS and launches it in qemu  |
+| make bochs    | Builds the whols OS and launches it in bochs |
+| make debugq   | Builds the whole OS and launches it in qemu with debug flags |
+| make fuse     | Will eventually make a fuse filesystem for SFS. Now just makes a test library with some really edgy messages |
+
+Usually the process is to write code, run it in qemu, if there's a seriously challenging issue to work out, switch to bochs. bochs is better for debugging, but slow af. 
+
+## Contributing
+Since this is here for me to learn, big features are only encouraged if you do a really clean job of it, and write nice fancy commit messages. small fixes are more than welcome. Don't use tabs in source files, and generally follow the same style guides used throughout the rest of the code.
+
+## Cross Compiler?
+When you normally compile something, your compiler *should* be configured to create binaries for only the architecture of your machine. Any time you have a compiler that generates machine code for some other architecture, that would be a cross compiler. Most operating systems use a cross compiler, and that's what OSDevWiki says to do too. However, we do not live in 2000 any more, and SOS is exclusively built on, and developed for the AMD64 architecture (x86_64). This means that there is no need to waste time on a cross compiler.
