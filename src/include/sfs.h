@@ -1,13 +1,9 @@
-#ifndef shittyfs_h
-#define shittyfs_h
+#ifndef sfs_h
+#define sfs_h
 
-
-#ifdef STDLIB
-#include <stdint.h>
-#else
-#include "ktype.h"
-#include "ata.h"
-#endif
+#include <ktype.h>
+#include <ata.h>
+#include <filesystem.h>
 
 
 #define CHUNK_SIZE 512
@@ -16,16 +12,6 @@
 typedef struct {
 	uint8_t __raw[512];
 }__attribute__((packed)) chunk_t;
-
-typedef struct _fs_t{
-	uint64_t magic_number;
-	uint64_t total_chunk_count;
-	void *underlying_data;
-	void (*chunk_read)(struct _fs_t *fs, uint64_t chunk_no, void *data);
-	void (*chunk_write)(struct _fs_t *fs, uint64_t chunk_no, void *data);
-	void (*file_write)(struct _fs_t *fs, char *name, void *data, uint64_t len);
-	uint64_t (*file_read)(struct _fs_t *fs, char *name, void *data, uint64_t max_len);
-}__attribute__((packed)) fs_t;
 
 typedef union {
 	struct {
@@ -68,14 +54,10 @@ typedef struct {
 
 
 fs_t get_fs_memory(uint8_t *, uint64_t);
-void mkfs(fs_t *fs);
-bool detectfs(fs_t *fs);
-uint64_t file_read(fs_t *, char *, void *, uint64_t);
-
-void file_write(fs_t *, char *, void *, uint64_t);
-
-#ifndef STDLIB
 fs_t get_fs_ata(struct ata_device *);
-#endif
+
+void mkfs_sfs(fs_t *fs);
+bool detectfs(fs_t *fs);
+
 
 #endif

@@ -3,7 +3,7 @@
 # This stuff is all for building the kernel itself
 #
 ######
-kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64
+kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64 -g
 arch ?= x86_64
 
 BUILD := build
@@ -11,7 +11,6 @@ KERNEL := $(BUILD)/kernel.bin
 ISO := $(BUILD)/os.iso
 LINKER_SCRIPT := src/asm/$(arch)/linker.ld
 GRUB_CFG := src/grub/grub.cfg
-ROOTFS := rootfs
 SFSDISK := $(BUILD)/sfsdisk
 
 C_SRC := $(shell find $(SOURCEDIR) -name '*.c')
@@ -48,8 +47,6 @@ $(BUILD)/asm/$(arch)/%.o: src/asm/$(arch)/%.asm
 
 $(ISO): $(KERNEL) $(GRUB_CFG)
 	@mkdir -p build/isofiles/boot/grub
-	@mkdir -p build/isofiles/root
-	@cp -R $(ROOTFS)/* build/isofiles/root/
 	@cp $(KERNEL) build/isofiles/boot/kernel.bin
 	@cp $(GRUB_CFG) build/isofiles/boot/grub
 	@grub-mkrescue -d /usr/lib/grub/i386-pc -o $(ISO) build/isofiles 2>/dev/null

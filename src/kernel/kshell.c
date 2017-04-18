@@ -7,6 +7,7 @@
 #include "pci.h"
 #include "ata.h"
 #include "devices.h"
+#include "sfs.h"
 
 uint8_t keymap[][128] = {
     {0},
@@ -138,26 +139,7 @@ void run_cmd(char *run) {
         kprintf("Getting device: %04s\n", run+5);
         fs_t *fs = get_device(run+5);
         if (fs) {
-            mkfs(fs);
-        } else {
-            kprintf("Device not present!\n");
-        }
-    } else if (!strncmp(run, "writefs", 7)) {
-        kprintf("Getting device: %04s\n", run+8);
-        fs_t *fs = get_device(run+8);
-        if (fs) {
-            char *content = "THIS is A TEST OF THE FILESYSTEM";
-            file_write(fs, "TEST", content, strlen(content));
-        } else {
-            kprintf("Device not present!\n");
-        }
-    } else if (!strncmp(run, "readfs", 6)) {
-        kprintf("Getting device: %04s\n", run+7);
-        fs_t *fs = get_device(run+7);
-        if (fs) {
-            char content[100] = {0};
-            file_read(fs, "TEST", content, 100);
-            kprintf("MSG = %03s\n", content);
+            mkfs_sfs(fs);
         } else {
             kprintf("Device not present!\n");
         }
@@ -190,6 +172,11 @@ void run_cmd(char *run) {
         } else {
             kprintf("see %05x for usage\n", "help");
         }
+    } else if (!strncmp(run, "ls", 3)) {
+        fs_t *fs = get_device("VFS");
+        char buf[200];
+        uint64_t len;
+        fs->file_read(fs, "/bin", buf, 200, &len);
     } else if (!strncmp(run, "diskread 0x", 11)) {
         uint64_t addr = hex2int(run+11);
         char *next = strfnd(run+11, ' ');

@@ -1,10 +1,11 @@
-#include "devices.h"
-#include "shittyfs.h"
-#include "mmu.h"
-#include "libk.h"
-#include "kio.h"
+#include <devices.h>
+#include <filesystem.h>
+#include <ata.h>
+#include <mmu.h>
+#include <libk.h>
+#include <kio.h>
 
-#define NAMELEN 63-sizeof(fs_t)
+#define NAMELEN 86-sizeof(fs_t)
 
 typedef struct {
 	uint8_t present;
@@ -50,6 +51,13 @@ void list_devices() {
 			char buf[NAMELEN+1] = {0};
 			memcpy(buf, entries[i].name, NAMELEN);
 			kprintf("device: %04s\n", buf);
+			kprintf("  fsptr = %04x\n", &entries[i].filesystem);
+			if (entries[i].filesystem.identity("SFS_ATA")) {
+				kprintf("  ATA device\n");
+				struct ata_device *dev = entries[i].filesystem._underlying_data;
+				kprintf("  model = %04s\n", dev->identity.model);
+			}
+			kprintf("  size = %04iB\n", entries[i].filesystem.get_fs_size_bytes(&entries[i].filesystem));
 		}
 	}
 }

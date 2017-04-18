@@ -2,6 +2,9 @@
 #include "ktype.h"
 #include "mmu.h"
 #include "libk.h"
+#include <filesystem.h>
+#include <devices.h>
+#include <sfs.h>
 
 /*
  * Static variables
@@ -90,7 +93,7 @@ uint64_t __get_next_free_page() {
 }
 
 /* setup the frame & page free lists */
-void level2_memory_allocator(frame_allocator *alloc, frame_t f) {
+void level2_memory_allocator(frame_allocator *alloc, frame_t f, uint64_t last_frame) {
     for(int i=0; i<WAITING_SIZE; i++) {
         frame_t A = _get_next_free_frame();
         _map_page_to_frame(A, A);
@@ -107,13 +110,32 @@ void level2_memory_allocator(frame_allocator *alloc, frame_t f) {
     frame_t f_frame = _get_next_free_frame();
     _map_page_to_frame(f_frame, f_frame);
     // support 0x10000 frames starting from last used frame
-    frame_head = create_head((void *)starting_address(f_frame), f_frame+1, f_frame+0x10000);
+    frame_head = create_head((void *)starting_address(f_frame), f_frame+1, last_frame/PAGE_SIZE);
 
 
     _get_next_free_frame = __get_next_free_frame;
     _get_next_free_page = __get_next_free_page;
     _release_frame = __release_frame;
     _release_page = __release_page;
+}
+
+fs_t *get_virtual_file_system() {
+    uint64_t PAGES = 10;
+    uint64_t result = 0;
+    for(int i=0; i<PAGES; i++) {
+        uint64_t frame = get_next_free_frame();
+        uint64_t page = get_next_free_page();
+        map_page_to_frame(page, frame);
+        if (result == 0) {
+            result = page;
+        }
+    }
+    void *ins = (void *)(result * PAGE_SIZE);
+    fs_t rootfs = get_fs_memory(ins, PAGES*PAGE_SIZE);
+    mkfs_sfs(&rootfs);
+    put_device("rootfs", rootfs);
+    fs_init(get_device("rootfs"));
+    return get_device("VFS");
 }
 
 /* setup the early allocators */

@@ -18,11 +18,6 @@ void (*irqs[INTERRUPTS]) (void) = {
     &irq_33,
 };
 
-void invalid_opcode(struct interrupt_frame *frame) {
-    kprintf("INVALID OPCODE");
-    while(1);
-}
-
 struct interrupt_frame *get_real_frame(uint64_t frame_addr, uint64_t id) {
     switch (id) {
         case 8: case 10: case 11: case 12:
@@ -46,6 +41,12 @@ void dump_frame(struct interrupt_frame *frame) {
     kprintf("    CPUFlg = %6ex\n", frame->cpu_flags);
     kprintf("    StkPtr = %6ex\n", frame->stack_pointer);
     kprintf("    StkSgm = %6ex\n", frame->stack_segment);
+}
+
+void invalid_opcode(struct interrupt_frame *frame) {
+    kprintf("%6es Invalid Opcode\n", "[INT_HANDLER]");
+    dump_frame(frame);
+    while(1);
 }
 
 void divide_by_zero(struct interrupt_frame *frame) {

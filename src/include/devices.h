@@ -1,7 +1,7 @@
 #ifndef devices_h
 #define devices_h
 
-#include "shittyfs.h"
+#include <filesystem.h>
 
 void dev_init();
 fs_t *get_device(char *);

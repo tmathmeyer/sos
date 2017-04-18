@@ -1,7 +1,8 @@
 #ifndef mmu_h
 #define mmu_h
 
-#include "multiboot.h"
+#include <multiboot.h>
+#include <filesystem.h>
 
 #define PAGE_SIZE 4096
 #define PAGE_ENTRIES 512
@@ -55,7 +56,7 @@ typedef struct {
     physical_address mboot_end;
 } frame_allocator;
 
-
+fs_t *get_virtual_file_system();
 uint64_t allocate_full_page();
 void release_full_page(uint64_t);
 void allocate_full_page_writeback(uint64_t *, uint64_t *);

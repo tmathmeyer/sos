@@ -1,14 +1,15 @@
-#include "libk.h"
-#include "multiboot.h"
-#include "interrupts.h"
-#include "mmu.h"
-#include "timer.h"
-#include "keyboard.h"
-#include "kshell.h"
-#include "time.h"
-#include "ata.h"
-#include "devices.h"
-#include "shittyfs.h"
+#include <libk.h>
+#include <multiboot.h>
+#include <interrupts.h>
+#include <mmu.h>
+#include <timer.h>
+#include <keyboard.h>
+#include <kshell.h>
+#include <time.h>
+#include <ata.h>
+#include <devices.h>
+#include <filesystem.h>
+#include <sfs.h>
 
 
 extern void load_idt(void);
@@ -16,6 +17,7 @@ int kmain(struct multiboot_header *);
 
 void print_memory_area(struct memory_area *area) {
     kprintf("    start: %07x, length: %07x\n", area->base_addr, area->length);
+    kprintf("     H.R.Length = %07i\n", area->length);
 }
 
 void print_elf_section(struct elf_section *section) {
@@ -62,12 +64,14 @@ void enable_kernel_paging(struct multiboot_header *multiboot_info) {
 
     level1_memory_allocator(&falloc);
     frame_t f = map_out_huge_pages(&falloc);
-    level2_memory_allocator(&falloc, f);
+    level2_memory_allocator(&falloc, f, get_large_ram_area(mmap_sections).end);
 }
 
 void print_discovered_fs(fs_t *fs, char *name) {
     if (detectfs(fs)) {
         kprintf("discovered a filesystem on device %05s\n", name);
+    } else {
+        kprintf("discovered a device (%05s) with no detected filesystem!\n", name);
     }
 }
 
@@ -100,7 +104,11 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* scan for ata devices on pci bug*/
     ata_init();
 
+    /* print some disk stuff */
     each_device(print_discovered_fs);
+
+    /* get the root virtual file system */
+    fs_t *rfs = get_virtual_file_system();
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");
