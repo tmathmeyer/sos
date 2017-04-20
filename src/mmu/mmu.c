@@ -134,7 +134,16 @@ fs_t *get_virtual_file_system() {
     fs_t rootfs = get_fs_memory(ins, PAGES*PAGE_SIZE);
     mkfs_sfs(&rootfs);
     put_device("rootfs", rootfs);
-    fs_init(get_device("rootfs"));
+
+    fs_t *root = get_device("rootfs");
+    char *dir_msg = "This is a directory";
+    root->file_write(root, "/bin", dir_msg, strlen(dir_msg));
+    root->file_write(root, "/proc", dir_msg, strlen(dir_msg));
+    root->file_write(root, "/dev", dir_msg, strlen(dir_msg));
+    fs_init(root);
+
+    
+
     return get_device("VFS");
 }
 

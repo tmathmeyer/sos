@@ -19,21 +19,30 @@ fs_t *maybe_mount_point(mp_t *mp_page, char *path) {
 }
 
 fs_t *get_mount_for_file(mp_t *mp_page, char *path, char **rest) {
-	uint64_t len = strlen(path);
-	while(len) {
+	uint64_t len_w_nt = strlen(path)+1;
+	uint64_t last_null_set = 0;
+	char last_chr = 0;
+
+	while(len_w_nt) {
+		kprintf("len('%05s') = %05i\n", path, len_w_nt);
 		fs_t *res = maybe_mount_point(mp_page, path);
 		if (res) {
+			*rest = &path[len_w_nt-1];
 			return res;
 		}
-		while(len && path[len] != '/') {
-			len --;
+		while(path[len_w_nt] != '/') {
+			len_w_nt--;
 		}
-		if (!len) {
-			return NULL;
+		if (last_null_set) {
+			path[last_null_set] = last_chr;
 		}
-		*rest = &path[len+1];
-		path[len] = 0;
-	} 
+		last_null_set = len_w_nt;
+		last_chr = path[len_w_nt];
+		path[len_w_nt] = 0;
+	}
+	path[0] = last_chr;
+	*rest = &path[0];
+	return maybe_mount_point(mp_page, "/");
 }
 
 FS_ERROR file_read(fs_t *vfs, char *name, void *data, uint64_t len, uint64_t *read) {

@@ -172,11 +172,12 @@ void run_cmd(char *run) {
         } else {
             kprintf("see %05x for usage\n", "help");
         }
-    } else if (!strncmp(run, "ls", 3)) {
+    } else if (!strncmp(run, "ls ", 3)) {
         fs_t *fs = get_device("VFS");
-        char buf[200];
-        uint64_t len;
-        fs->file_read(fs, "/bin", buf, 200, &len);
+        char buf[200] = {0};
+        uint64_t len = 0;
+        fs->file_read(fs, run+3, buf, 200, &len);
+        kprintf("len=%03i, msg='%05s'\n", len, buf);
     } else if (!strncmp(run, "diskread 0x", 11)) {
         uint64_t addr = hex2int(run+11);
         char *next = strfnd(run+11, ' ');
