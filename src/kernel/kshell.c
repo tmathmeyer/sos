@@ -176,7 +176,7 @@ void run_cmd(char *run) {
         fs_t *fs = get_device("VFS");
         char buf[200] = {0};
         uint64_t len = 0;
-        fs->file_read(fs, run+3, buf, 200, &len);
+        file_read(run+3, buf, 200, &len);
         kprintf("len=%03i, msg='%05s'\n", len, buf);
     } else if (!strncmp(run, "diskread 0x", 11)) {
         uint64_t addr = hex2int(run+11);

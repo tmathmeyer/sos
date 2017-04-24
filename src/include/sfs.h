@@ -5,7 +5,6 @@
 #include <ata.h>
 #include <filesystem.h>
 
-
 #define CHUNK_SIZE 512
 #define VERSION 0x1
 
@@ -24,24 +23,24 @@ typedef union {
 	uint8_t __padding[512];
 }__attribute__((packed)) system_desc_chunk_t;
 
-typedef struct {
-	uint8_t name[110];
-	uint8_t read : 1;
-	uint8_t write : 1;
-	uint8_t execute : 1;
+typedef struct { // 20 bytes
+	uint64_t ZEROES : 26;
+	uint8_t rwx_own : 3;
+	uint8_t rwx_grp : 3;
+	uint8_t rwx_all : 3;
 	uint8_t type : 5;
 	uint64_t size : 64;
 	uint64_t first_chunk : 56;
 }__attribute__((packed)) file_header_t;
 
 typedef struct {
-	struct {
+	struct { //96 bits
 		uint8_t __used : 1;
-		uint8_t __chunk_present_mask : 4;
-		uint8_t __zeroes : 1;
+		uint32_t __chunk_present_mask : 25;
+		uint64_t __zeroes : 14;
 		uint64_t __checksum : 56;
 	};
-	file_header_t headers[4];
+	file_header_t headers[25];
 }__attribute__((packed)) table_chunk_t;
 
 typedef struct {

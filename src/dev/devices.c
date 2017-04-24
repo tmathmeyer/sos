@@ -5,7 +5,7 @@
 #include <libk.h>
 #include <kio.h>
 
-#define NAMELEN 86-sizeof(fs_t)
+#define NAMELEN 40
 
 typedef struct {
 	uint8_t present;

@@ -120,6 +120,7 @@ void level2_memory_allocator(frame_allocator *alloc, frame_t f, uint64_t last_fr
 }
 
 fs_t *get_virtual_file_system() {
+    /*
     uint64_t PAGES = 10;
     uint64_t result = 0;
     for(int i=0; i<PAGES; i++) {
@@ -145,6 +146,7 @@ fs_t *get_virtual_file_system() {
     
 
     return get_device("VFS");
+    */
 }
 
 /* setup the early allocators */
