@@ -1,10 +1,7 @@
-#include "chunk_allocator.h"
-#include "ktype.h"
-#include "mmu.h"
-#include "libk.h"
-#include <filesystem.h>
-#include <devices.h>
-#include <sfs.h>
+#include <chunk_allocator.h>
+#include <ktype.h>
+#include <mmu.h>
+#include <libk.h>
 
 /*
  * Static variables
@@ -119,36 +116,6 @@ void level2_memory_allocator(frame_allocator *alloc, frame_t f, uint64_t last_fr
     _release_page = __release_page;
 }
 
-fs_t *get_virtual_file_system() {
-    /*
-    uint64_t PAGES = 10;
-    uint64_t result = 0;
-    for(int i=0; i<PAGES; i++) {
-        uint64_t frame = get_next_free_frame();
-        uint64_t page = get_next_free_page();
-        map_page_to_frame(page, frame);
-        if (result == 0) {
-            result = page;
-        }
-    }
-    void *ins = (void *)(result * PAGE_SIZE);
-    fs_t rootfs = get_fs_memory(ins, PAGES*PAGE_SIZE);
-    mkfs_sfs(&rootfs);
-    put_device("rootfs", rootfs);
-
-    fs_t *root = get_device("rootfs");
-    char *dir_msg = "This is a directory";
-    root->file_write(root, "/bin", dir_msg, strlen(dir_msg));
-    root->file_write(root, "/proc", dir_msg, strlen(dir_msg));
-    root->file_write(root, "/dev", dir_msg, strlen(dir_msg));
-    fs_init(root);
-
-    
-
-    return get_device("VFS");
-    */
-}
-
 /* setup the early allocators */
 void level1_memory_allocator(frame_allocator *alloc) {
     level1_allocator = alloc;
@@ -221,6 +188,39 @@ uint64_t grab_next_page_quiet() {
         }
     }
     return 0;
+}
+
+uint64_t alloc_contiguous_pages(uint64_t pagect) {
+    struct segment_list *head = page_head;
+    while(head) {
+        if (!head->allocated) {
+            if (head->end - head->beginning + 1 >= pagect) {
+                goto valid_head;
+            }
+        }
+        head = head->next;
+    }
+    return 0;
+valid_head:
+    (void)"We have found a segment with enough open pages;";
+    (void)"claim them, and THEN map them, so that we don't";
+    (void)"have our list broken by the page table allocator";
+    if (head->prev) {
+        head = head->prev;
+    }
+    uint64_t starting_page = claim_next_free_segment(head);
+
+    // very important to start at 1, since we've already gotten starting page!
+    for(int i=1; i<pagect; i++) {
+        claim_next_free_segment(head);
+    }
+
+    for(int i=0; i<pagect; i++) {
+        uint64_t frame = get_next_free_frame();
+        map_page_to_frame(starting_page+i, frame);
+    }
+
+    return starting_page;
 }
 
 /* take a page and then fill in the buffer again */

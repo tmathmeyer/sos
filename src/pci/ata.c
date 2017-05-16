@@ -5,8 +5,7 @@
 #include <kio.h>
 #include <mmu.h>
 #include <lock.h>
-#include <sfs.h>
-#include <devices.h>
+#include <devfs.h>
 
 static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
 static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
@@ -324,12 +323,12 @@ void ata_device_write_sector(struct ata_device *dev, uint32_t lba, uint8_t *buf)
     spin_unlock(&ata_lock);
 }
 
-static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, size_t size) {
+static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, uint64_t size) {
     if (size % 4) {
         ERROR("tried to a buffer compare with invalid size");
         while(1);
     }
-    size_t i = 0;
+    uint64_t i = 0;
     while (i < size) {
         if (*ptr1 != *ptr2) return 1;
         ptr1++;
@@ -457,14 +456,14 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     }
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
         if (ata_device_init(dev, ata_dev)) {
-            put_device(ATA_dev_name, get_fs_ata(dev));
+            devfs_put_device(ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) ||
             (cl == 0x69 && ch == 0x96)) {
         if (atapi_device_init(dev, ata_dev)) {
-            put_device(ATAPI_dev_name, get_fs_ata(dev));
+            devfs_put_device(ATAPI_dev_name, dev);
             ATAPI_dev_name[2]++;
         }
         return 2;

@@ -1,7 +1,7 @@
 #ifndef ata_h
 #define ata_h
 
-#include "ktype.h"
+#include <ktype.h>
 
 #define ATA_REG_ALTSTATUS  0x0C
 #define ATA_REG_HDDEVSEL   0x06

@@ -1,13 +1,10 @@
-#include "kshell.h"
-#include "ktype.h"
-#include "libk.h"
-#include "kio.h"
-#include "mmu.h"
-#include "time.h"
-#include "pci.h"
-#include "ata.h"
-#include "devices.h"
-#include "sfs.h"
+#include <kshell.h>
+#include <ktype.h>
+#include <libk.h>
+#include <kio.h>
+#include <mmu.h>
+#include <time.h>
+#include <pci.h>
 
 uint8_t keymap[][128] = {
     {0},
@@ -112,12 +109,7 @@ bool super_mode = false;
 
 void run_cmd(char *run) {
     if (!(strncmp(run, "page 0x", 7))) {
-        uint64_t num = hex2int(run+7);
-        show_page_table_layout_for_address(num);
-    } else if (!strncmp(run, "dzfault", 6)) {
-        int i=0, j=11;
-        kprintf("stack = %6dx\n", &i);
-        int k = j/i;
+        show_page_table_layout_for_address(hex2int(run+7));
     } else if (!strncmp(run, "pci", 4)) {
         pci_scan(print_pci_devices, -1, NULL);
     } else if (!strncmp(run, "pci_vend 0x", 11)) {
@@ -127,15 +119,10 @@ void run_cmd(char *run) {
         print_frames();
     } else if (!strncmp(run, "pages", 6)) {
         print_pages();
-    } else if (!strncmp(run, "devices", 8)) {
-        list_devices();
-    } else if (!strncmp(run, "fsteal", 7)) {
-        kprintf("stole page: %6ex\n", get_next_free_frame());
-    } else if (!strncmp(run, "nfp", 4)) {
-        kprintf("next free page = %6ex\n", find_page_no_table_creation(4)); 
     } else if (!strncmp(run, "time", 5)) {
         show_time();
     } else if (!strncmp(run, "mkfs", 4)) {
+        /*
         kprintf("Getting device: %04s\n", run+5);
         fs_t *fs = get_device(run+5);
         if (fs) {
@@ -143,122 +130,9 @@ void run_cmd(char *run) {
         } else {
             kprintf("Device not present!\n");
         }
-    } else if (!strncmp(run, "gpi2 0x", 7)) {
-        uint64_t a = hex2int(run+7);
-        kprintf("table address = %6ex\n", get_page_index(2, (void *)a)); 
-    } else if (!strncmp(run, "palloc", 7)) {
-        page_t page = allocate_full_page();
-        kprintf("allocated page = %6ex\n", page);
-        kprintf("mapped to      = %6ex\n", translate_page(page));
-    } else if (!strncmp(run, "kmap 0x", 7)) {
-        uint64_t virt = hex2int(run+7);
-        char *next = strfnd(run+7, ' ');
-        if (*next && !strncmp(next, " 0x", 3)) {
-            uint64_t phys = hex2int(next+3);
-            kprintf("mapping P%07x to F%07x\n", virt, phys);
-            map_page_to_frame(virt, phys);
-        } else {
-            kprintf("see %05x for usage\n", "help");
-        }
-    } else if (!strncmp(run, "read 0x", 7)) {
-        char *addr = (char *)hex2int(run+7);
-        char *next = strfnd(run+7, ' ');
-        if (*next && !strncmp(next, " 0x", 3)) {
-            uint64_t size = hex2int(next+3);
-            for(int j=0;j<size;j++) {
-                kprintf("%07c", addr[j]);
-            }
-            kprintf("\n");
-        } else {
-            kprintf("see %05x for usage\n", "help");
-        }
-    } else if (!strncmp(run, "ls ", 3)) {
-        fs_t *fs = get_device("VFS");
-        char buf[200] = {0};
-        uint64_t len = 0;
-        file_read(run+3, buf, 200, &len);
-        kprintf("len=%03i, msg='%05s'\n", len, buf);
-    } else if (!strncmp(run, "diskread 0x", 11)) {
-        uint64_t addr = hex2int(run+11);
-        char *next = strfnd(run+11, ' ');
-        if (*next && !strncmp(next, " 0x", 3)) {
-            uint64_t size = hex2int(next+3);
-            if (size > 4095) {
-                kprintf("ret reading less data please\n");
-            } else {
-                char *buff = (char *)starting_address(allocate_full_page());
-                read_disk_raw(addr, size, buff);
-                for(int j=0;j<size;j++) {
-                    kprintf("%07c", buff[j]);
-                }
-                kprintf("\n");
-                release_full_page(containing_address((uint64_t)buff));
-            }
-
-        } else {
-            kprintf("see %05x for usage\n", "help");
-        }
-    } else if (!strncmp(run, "diskwrite 0x", 12)) {
-        uint64_t addr = hex2int(run+12);
-        char *buff = (char *)starting_address(allocate_full_page());
-        read_disk_raw(addr, 512, buff);
-        memcpy(buff, "  WRITE", 7);
-        write_disk_raw(addr, 7, buff);
-        release_full_page(containing_address((uint64_t)buff));
-    } else if (!strncmp(run, "write 0x", 8)) {
-        char *addr = (char *)hex2int(run+8);
-        kprintf("writing to %07x\n", addr);
-        char *next = strfnd(run+7, ' ');
-        next++;
-        while (next && *next) {
-            *addr++ = *next++;
-        }
-    } else if (!strncmp(run, "pageinfo 0x", 11)) {
-        uint64_t addr = hex2int(run+11);
-        char *next = strfnd(run+11, ' ');
-        if (next && *next && !strncmp(next, " 0x", 3)) {
-            uint64_t size = hex2int(next+3);
-            page_t t = containing_address(addr);
-            for(size_t i=0; i<size; i++) {
-                uint64_t addr = starting_address(t+i);
-                kprintf("%05x  -->  %05x\n", addr, translate_address((void *)addr));
-            }
-        } else {
-            kprintf(" see %05x for usage\n", "help");
-        }
-    } else if (!strncmp(run, "find ", 5)) {
-        char *x = (void *)0x1000;
-        int i = 0;
-        char *ne = run+5;
-        while(ne[i]) {
-            if (i%4096 == 0) {
-                if (translate_address(x) == 0) {
-                    goto noaddr;
-                }
-            }
-            (void)"sometimes interrupts break this...";
-fucking:
-            if (*x == ne[i] && x!=ne) {
-                i++;
-            } else {
-                i = 0;
-            }
-            x++;
-        }
-        kprintf("%05x\n", x - stringlen(run+5));
-        return;
-noaddr:
-        if (translate_address(x)) {
-            goto fucking;
-        }
-        kprintf("text not found in ram [%03x]\n", x);
-    } else if (!strncmp(run, "help", 5)) {
-        kprintf("  page   [0xADDR]:      display page table info for a virtual address\n");
-        kprintf("  kmap   [0xA1 0xA2]:   map virtual addr1 to physical addr2\n");
-        kprintf("  read   [0xADDR 0xN]:  read N bytes from ADDR\n");
-        kprintf("  write  [0xADDR text]: write [text] to ADDR\n");
-        kprintf("  writemarkertext\n");
-        kprintf("  help:                 print this information\n");
+        */
+    } else if (!strncmp(run, "cat ", 4)) {
+        
     } else {
         kprintf("INVALID COMMAND\n");
     }

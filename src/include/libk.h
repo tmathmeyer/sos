@@ -30,6 +30,7 @@ enum vga_color {
 };
 
 #define min(x, y) (((x)>(y))?(y):(x))
+#define max(a, b) (((a)>(b))?(a):(b))
 
 void *memset(void *p, int b, size_t n);
 void *memcpy(void *dest, void *src, size_t bytes);
