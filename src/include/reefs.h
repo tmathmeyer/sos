@@ -42,5 +42,6 @@ typedef struct {
 }__attribute__((packed)) table_chunk_t;
 
 fs_t empty_fs(void);
+fs_t *new_mem_reefs(uint64_t);
 
 #endif

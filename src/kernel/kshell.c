@@ -5,6 +5,7 @@
 #include <mmu.h>
 #include <time.h>
 #include <pci.h>
+#include <vfs.h>
 
 uint8_t keymap[][128] = {
     {0},
@@ -131,8 +132,9 @@ void run_cmd(char *run) {
             kprintf("Device not present!\n");
         }
         */
-    } else if (!strncmp(run, "cat ", 4)) {
-        
+    } else if (!strncmp(run, "ls ", 3)) {
+        char *path = run+3;
+        ls(path);
     } else {
         kprintf("INVALID COMMAND\n");
     }

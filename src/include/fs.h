@@ -6,8 +6,21 @@
 typedef uint32_t FLAGS;
 typedef uint32_t fs_type;
 
-#define F_CREATE 0x01
-#define F_DIR 0x2
+#define F_OPT_CREATE 0x01
+#define F_OPT_TYPE_DIR 0x2
+#define F_OPT_TYPE_FILE 0x04
+#define F_OPT_TYPE_MOUNT 0x08
+
+#define FTYPE_FILE  0x01
+#define FTYPE_DIR   0x02
+#define FTYPE_MOUNT 0x03
+
+char *FTYPE_STR[4] = {
+    "\0",
+    "FILE",
+    "DIR",
+    "MOUNT"
+};
 
 typedef enum FS_ERROR {
 	NO_ERROR = 0,
@@ -16,6 +29,14 @@ typedef enum FS_ERROR {
 	DISK_WRITE_ERROR = 3,
 	NOT_A_DIRECTORY = 4
 } FS_ERROR;
+
+char *FS_ERROR_STRING[5] = {
+    "No Error",
+    "File Not Found",
+    "Disk Read Error",
+    "Disk Write Error",
+    "Not a Directory"
+};
 
 typedef
 struct fs_disk_s {
@@ -28,6 +49,11 @@ struct fs_disk_s {
 	/* get size of the disk IN BYTES */
 	uint64_t (*get_size)(struct fs_disk_s *);
 }__attribute__((packed)) fs_disk_t;
+
+typedef
+struct mountfile_s {
+	struct fs_file_s *fs;
+}__attribute__((packed)) mountfile_t;
 
 typedef
 struct dirent_s {
@@ -63,11 +89,7 @@ struct fs_file_s {
 typedef
 struct fs_metadata_s {
 	uint8_t rwx : 3;
-	uint8_t _reserved_A : 1;
-	uint8_t _reserved_B : 1;
-	uint8_t _reserved_C : 1;
-	uint8_t _reserved_D : 1;
-	uint8_t _reserved_E : 1;
+	uint8_t _reserved : 5;
 	fs_type type;
 	uint64_t UTC_touched;
 	uint64_t UTC_created;
