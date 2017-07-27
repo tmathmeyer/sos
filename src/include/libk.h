@@ -41,6 +41,8 @@ uint64_t stringlen(char *);
 void wait(void);
 void kio_init(void);
 void clear_screen(void);
+#define sprintf(...) _sprintf (0,0,0,0,0,0,0,0,0,0,__VA_ARGS__)
+uint32_t _sprintf(int,int,int,int,int,int,int,int,int,int, char *dest, const char fmt[], ...);
 #define kprintf(...) _kprintf (0,0,0,0,0,0,0,0,0,0,__VA_ARGS__)
 uint32_t _kprintf(int,int,int,int,int,int,int,int,int,int, const char fmt[], ...);
 uint32_t kputs(char *);

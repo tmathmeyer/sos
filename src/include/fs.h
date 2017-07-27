@@ -6,21 +6,15 @@
 typedef uint32_t FLAGS;
 typedef uint32_t fs_type;
 
-#define F_OPT_CREATE 0x01
-#define F_OPT_TYPE_DIR 0x2
-#define F_OPT_TYPE_FILE 0x04
-#define F_OPT_TYPE_MOUNT 0x08
+#define F_OPT_CREATE 0x01 << 0
+#define F_OPT_TYPE_DIR 0x01 << 1
+#define F_OPT_TYPE_FILE 0x01 << 2
+#define F_OPT_TYPE_MOUNT 0x01 << 3
 
 #define FTYPE_FILE  0x01
 #define FTYPE_DIR   0x02
 #define FTYPE_MOUNT 0x03
 
-char *FTYPE_STR[4] = {
-    "\0",
-    "FILE",
-    "DIR",
-    "MOUNT"
-};
 
 typedef enum FS_ERROR {
 	NO_ERROR = 0,
@@ -29,14 +23,6 @@ typedef enum FS_ERROR {
 	DISK_WRITE_ERROR = 3,
 	NOT_A_DIRECTORY = 4
 } FS_ERROR;
-
-char *FS_ERROR_STRING[5] = {
-    "No Error",
-    "File Not Found",
-    "Disk Read Error",
-    "Disk Write Error",
-    "Not a Directory"
-};
 
 typedef
 struct fs_disk_s {

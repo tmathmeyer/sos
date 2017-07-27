@@ -215,6 +215,49 @@ uint32_t write_num(uint64_t num, uint8_t color) {
     return d_r;
 }
 
+uint32_t _sprintf(int _a,int _b,int _c,int _d,int _e,int _f,int _g,int _h,int _i,int _j, char *dest, const char fmt[], ...) {
+    int chars = 0;
+    void **arg;
+    char c;
+    arg = (void **) &fmt;
+    arg++;
+
+    c = *fmt;
+    while (c) {
+        switch (c) {
+            case '%':
+                fmt++;
+                c = *fmt;
+                if (arg) {
+                    if (c) {
+                        switch(c) {
+                            case 's':
+                                (void) "Copying a string";
+                                char *str = *((char **) arg);
+                                uint64_t len = strlen(str);
+                                memcpy(dest+chars, str, len);
+                                chars += len;
+                                break;
+
+                            case 'c':
+                                dest[chars++] = *((char *)arg);
+                                break;
+                        }
+                        arg++;
+                    }
+                }
+                break;
+            default:
+                dest[chars++] = c;
+        }
+        if (c) {
+            fmt++;
+            c = *fmt;
+        }
+    }
+    return chars;
+}
+
 uint32_t _kprintf(int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9,int a0, const char fmt[], ...) {
     int chars = 0;
     void **arg;
@@ -239,7 +282,6 @@ uint32_t _kprintf(int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9
                 c = *fmt;
                 if (arg) {
                     if (c) {
-                        char temp[10];
                         switch(c) {
                             case 's':
                                 chars += write_string(*((char **) arg), color);

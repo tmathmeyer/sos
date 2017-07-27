@@ -4,8 +4,12 @@
 #include <fs.h>
 
 void vfs_init(void);
-void mount_fs_by_path(fs_t *, char *);
+void ls(char *); /* move to a coreutils */
+void cat(char *);
 
-void ls(char *);
+void make_fs_entry(char *, int);
+void _make_fs_entry(char *, int, fs_t *);
+FS_ERROR open_stat(char *, fs_metadata_t *, fs_file_t *);
+void mount(void *, fs_t *);
 
 #endif

@@ -135,6 +135,11 @@ void run_cmd(char *run) {
     } else if (!strncmp(run, "ls ", 3)) {
         char *path = run+3;
         ls(path);
+    } else if (!strncmp(run, "cat ", 4)) {
+        char *path = run+4;
+        cat(path);
+
+    
     } else {
         kprintf("INVALID COMMAND\n");
     }

@@ -97,10 +97,12 @@ uint64_t reefs_file_read(fs_file_t *file, void *dest, uint64_t len) {
     memcpy(&file_header, file->_data, sizeof(file_header_t));
 
     if (!(file_header.rwx & 0x04)) {
+        kprintf("no read in header\n");
         return 0;
     }
 
     if (!file_header.size) {
+        kprintf("no size\n");
         return 0;
     }
 
@@ -169,8 +171,14 @@ uint64_t reefs_file_write(fs_file_t *file, void *src, uint64_t len) {
     memcpy(&header, file->_data+16, 16);
     header.size = size;
     memcpy(file->_data+16, &header, 16);
+    uint64_t loc[2];
+    memcpy(loc, file->_data+32, sizeof(uint64_t) * 2);
+    table_chunk_t table;
+    disk->read_offset(disk, (loc[0]+1)*sizeof(chunk_t), &table, sizeof(table));
+    memcpy(&table.headers[loc[1]], &header, sizeof(header));
+    disk->write_offset(disk, (loc[0]+1)*sizeof(chunk_t), &table, sizeof(table));
 
-    return 0;
+    return size;
 }
 
 FS_ERROR reefs_open_raw(fs_t *fs, uint64_t loc[2], fs_file_t *entry) {
@@ -189,8 +197,8 @@ FS_ERROR reefs_open_raw(fs_t *fs, uint64_t loc[2], fs_file_t *entry) {
     entry->_fs = fs;
     entry->_position = 0;
     memcpy(entry->_data, &header, sizeof(file_header_t));
-    memcpy(entry->_data+16, &header, sizeof(file_header_t));
-    memcpy(entry->_data+32, loc, sizeof(uint64_t)*2);
+    memcpy(entry->_data+sizeof(file_header_t), &header, sizeof(file_header_t));
+    memcpy(entry->_data+(2*sizeof(file_header_t)), loc, sizeof(uint64_t)*2);
     return NO_ERROR;
 }
 
@@ -211,16 +219,13 @@ FS_ERROR reefs_new_file(fs_t *fs, char *path, fs_file_t *entry, fs_file_t *dir, 
             table.chunk_present_mask |= (0x1 << free_entry);
             table.headers[free_entry].rwx = 0x7;
             table.headers[free_entry].size = 0;
+            table.headers[free_entry].first_chunk = reefs_next_free_chunk(disk);
             if (flags & F_OPT_TYPE_MOUNT) {
+                table.headers[free_entry].type = FTYPE_MOUNT;
+            } else if (flags & F_OPT_TYPE_DIR) {
+                table.headers[free_entry].type = FTYPE_DIR;
+            } else if (flags & F_OPT_TYPE_FILE) {
                 table.headers[free_entry].type = FTYPE_FILE;
-                table.headers[free_entry].first_chunk = 0;
-            } else {
-                if (flags & F_OPT_TYPE_DIR) {
-                    table.headers[free_entry].type = FTYPE_DIR;
-                } else if (flags & F_OPT_TYPE_FILE) {
-                    table.headers[free_entry].type = FTYPE_FILE;
-                }
-                table.headers[free_entry].first_chunk = reefs_next_free_chunk(disk);
             }
 
             entry->_fs = fs;
@@ -238,10 +243,14 @@ FS_ERROR reefs_new_file(fs_t *fs, char *path, fs_file_t *entry, fs_file_t *dir, 
             table.checksum = checksum(table);
             disk->write_offset(disk, (i+1)*sizeof(chunk_t), &table, sizeof(chunk_t));
 
+            uint64_t rslen = strlen(path)+1;
             dirent_t ent;
             ent._table_block = i+1;
             ent._table_entry = free_entry;
-            ent.name_length = strlen(path)+1;
+            ent.name_length = rslen;
+            ent.name_length |= 0x07;
+            ent.name_length += 1;
+            uint64_t zero = 0;
 
             dir->rewind(dir);
             uint64_t i = 0;
@@ -251,7 +260,11 @@ FS_ERROR reefs_new_file(fs_t *fs, char *path, fs_file_t *entry, fs_file_t *dir, 
             dir->write(dir, &i, sizeof(uint64_t));
             dir->seekend(dir);
             dir->write(dir, &ent, sizeof(ent));
-            dir->write(dir, path, strlen(path)+1);
+            dir->write(dir, path, rslen);
+            if (rslen < ent.name_length) {
+                dir->write(dir, &zero, ent.name_length-rslen);
+            }
+
             dir->close(dir);
             return NO_ERROR;
         }
@@ -370,14 +383,6 @@ FS_ERROR reefs_mkfs(fs_t *fs, fs_disk_t *disk) {
 
     struct root_dir {
         uint64_t entry_count;
-        uint64_t self_table_block_A;
-        uint64_t self_table_entry_A;
-        uint64_t self_entry_len_A;
-        uint8_t  self_name_A[3];
-        uint64_t self_table_block_B;
-        uint64_t self_table_entry_B;
-        uint64_t self_entry_len_B;
-        uint8_t  self_name_B[2];
     }__attribute__((packed));
 
     table_chunk_t first_table;
@@ -390,15 +395,7 @@ FS_ERROR reefs_mkfs(fs_t *fs, fs_disk_t *disk) {
     disk->write_offset(disk, 1*sizeof(chunk_t), &first_table, sizeof(chunk_t));
 
     struct root_dir self = {
-        .entry_count = 2,
-        .self_table_block_A = 1,
-        .self_table_entry_A = 0,
-        .self_table_block_B = 1,
-        .self_table_entry_B = 0,
-        .self_entry_len_A = 3,
-        .self_entry_len_B = 2,
-        .self_name_A = "..",
-        .self_name_B = "."
+        .entry_count = 0,
     };
 
     file_chunk_t t;
