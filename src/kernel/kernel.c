@@ -7,8 +7,6 @@
 #include <kshell.h>
 #include <time.h>
 #include <ata.h>
-#include <vfs.h>
-#include <devfs.h>
 #include <alloc.h>
 
 extern void load_idt(void);
@@ -86,10 +84,6 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* interrupt enable */
     setup_IDT();
 
-    /* enable block device mappings */
-    vfs_init();
-    devfs_init();
-
     /* enable the scheduler */
     init_timer();
 
@@ -98,15 +92,6 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* scan for ata devices on pci bus*/
     ata_init();
-
-    make_fs_entry("/m", F_OPT_TYPE_MOUNT);
-    struct ata_device *ata = get_ata_by_dev_dir("/dev/hdb");
-    if (ata) {
-	    fs_t *fs = kmalloc(sizeof(fs_t));
-        new_ata_reefs(ata, fs);
-        kprintf("(%03x) statptr = [%05x], stat = %05x\n", fs, &(fs->stat), fs->stat);
-        mount("/m", fs);
-    }
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");

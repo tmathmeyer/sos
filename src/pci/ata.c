@@ -457,14 +457,13 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
         if (ata_device_init(dev, ata_dev)) {
             kprintf("device[%05s] address = %05x\n", ATA_dev_name, dev);
-            devfs_put_device(ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) ||
             (cl == 0x69 && ch == 0x96)) {
         if (atapi_device_init(dev, ata_dev)) {
-            devfs_put_device(ATAPI_dev_name, dev);
+            kprintf("device[%05s] address = %05x\n", ATAPI_dev_name, dev);
             ATAPI_dev_name[2]++;
         }
         return 2;
