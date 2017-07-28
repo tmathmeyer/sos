@@ -6,6 +6,8 @@
 #include <time.h>
 #include <pci.h>
 #include <vfs.h>
+#include <devfs.h>
+#include <reefs.h>
 
 uint8_t keymap[][128] = {
     {0},
@@ -122,24 +124,35 @@ void run_cmd(char *run) {
         print_pages();
     } else if (!strncmp(run, "time", 5)) {
         show_time();
-    } else if (!strncmp(run, "mkfs", 4)) {
-        /*
-        kprintf("Getting device: %04s\n", run+5);
-        fs_t *fs = get_device(run+5);
-        if (fs) {
-            mkfs_sfs(fs);
-        } else {
-            kprintf("Device not present!\n");
+    } else if (!strncmp(run, "mreefs ", 7)) {
+        char *path = run+7;
+        char *mpt = path;
+        while(*mpt) {
+            if (*mpt == ' ') {
+                *mpt = 0;
+            } else {
+                mpt++;
+            }
         }
-        */
+        mpt++;
+
+        struct ata_device *ata = get_ata_by_dev_dir(path);
+        if (ata) {
+            //fs_t *fs = new_ata_reefs(ata);
+            //mount(mpt, fs);
+        }
+    } else if (!strncmp(run, "mkdir ", 6)) {
+        char *path = run+6;
+        make_fs_entry(path, F_OPT_TYPE_DIR);
+    } else if (!strncmp(run, "mkmpt ", 6)) {
+        char *path = run+6;
+        make_fs_entry(path, F_OPT_TYPE_MOUNT);
     } else if (!strncmp(run, "ls ", 3)) {
         char *path = run+3;
         ls(path);
     } else if (!strncmp(run, "cat ", 4)) {
         char *path = run+4;
         cat(path);
-
-    
     } else {
         kprintf("INVALID COMMAND\n");
     }

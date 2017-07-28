@@ -456,6 +456,7 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     }
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
         if (ata_device_init(dev, ata_dev)) {
+            kprintf("device[%05s] address = %05x\n", ATA_dev_name, dev);
             devfs_put_device(ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
@@ -471,18 +472,18 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     return 0;
 }
 
-uint64_t read_disk_raw(uint64_t addr, uint64_t chars, uint8_t *data) {
-    return read_ata(&ata_primary_master, addr, chars, data);
+uint64_t read_disk_raw(struct ata_device *dev, uint64_t addr, uint64_t chars, uint8_t *data) {
+    return read_ata(dev, addr, chars, data);
 }
 
-uint64_t write_disk_raw(uint64_t addr, uint64_t chars, uint8_t *data) {
-    return write_ata(&ata_primary_master, addr, chars, data);
+uint64_t write_disk_raw(struct ata_device *dev, uint64_t addr, uint64_t chars, uint8_t *data) {
+    return write_ata(dev, addr, chars, data);
 }
 
 void ata_init() {
     uint32_t ata_dev = 0;
-    memcpy(ATA_dev_name, "HDA", 4);
-    memcpy(ATAPI_dev_name, "EDA", 4);
+    memcpy(ATA_dev_name, "hda", 4);
+    memcpy(ATAPI_dev_name, "eda", 4);
     pci_scan(&find_ata_pci, -1, &ata_dev);
 
     set_interrupt_handler(0x2E, ata_irq);

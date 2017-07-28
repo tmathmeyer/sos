@@ -102,7 +102,6 @@ uint64_t reefs_file_read(fs_file_t *file, void *dest, uint64_t len) {
     }
 
     if (!file_header.size) {
-        kprintf("no size\n");
         return 0;
     }
 
@@ -379,7 +378,6 @@ FS_ERROR reefs_mkfs(fs_t *fs, fs_disk_t *disk) {
     fs->open = reefs_open;
     fs->stat = reefs_stat;
     fs->remove = reefs_remove;
-
 
     struct root_dir {
         uint64_t entry_count;

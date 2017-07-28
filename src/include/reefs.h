@@ -1,7 +1,8 @@
 #ifndef reefs_h
 #define reefs_h
 
-#include "fs.h"
+#include <fs.h>
+#include <ata.h>
 
 typedef struct {uint8_t x[512];} chunk_t;
 #define MAGIC 0x7265656673
@@ -43,5 +44,6 @@ typedef struct {
 
 fs_t empty_fs(void);
 fs_t *new_mem_reefs(uint64_t);
+void new_ata_reefs(struct ata_device *, fs_t *);
 
 #endif

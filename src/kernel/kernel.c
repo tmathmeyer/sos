@@ -96,8 +96,17 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* enable the keyboard */
     init_keyboard();
 
-    /* scan for ata devices on pci bug*/
+    /* scan for ata devices on pci bus*/
     ata_init();
+
+    make_fs_entry("/m", F_OPT_TYPE_MOUNT);
+    struct ata_device *ata = get_ata_by_dev_dir("/dev/hdb");
+    if (ata) {
+	    fs_t *fs = kmalloc(sizeof(fs_t));
+        new_ata_reefs(ata, fs);
+        kprintf("(%03x) statptr = [%05x], stat = %05x\n", fs, &(fs->stat), fs->stat);
+        mount("/m", fs);
+    }
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");

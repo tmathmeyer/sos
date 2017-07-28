@@ -1,4 +1,5 @@
 #include <vfs.h>
+#include <ata.h>
 #include <fs.h>
 #include <reefs.h>
 #include <alloc.h>
@@ -123,13 +124,13 @@ FS_ERROR open_stat(char *path, fs_metadata_t *meta, fs_file_t *file) {
         if (remaining == 0) {
             err = fs->open(fs, path_so_far, file, 0);
             if (meta->type == FTYPE_MOUNT) {
-                 uint64_t fs_id;
-                 file->read(file, &fs_id, sizeof(fs_id));
-                 if (fs_id) {
-                     fs = get_mount_by_id(fs_id);
-                     err = fs->stat(fs, "/", meta);
-                     err = fs->open(fs, "/", file, 0);
-                 }
+                uint64_t fs_id;
+                file->read(file, &fs_id, sizeof(fs_id));
+                if (fs_id) {
+                    fs = get_mount_by_id(fs_id);
+                    err = fs->stat(fs, "/", meta);
+                    err = fs->open(fs, "/", file, 0);
+                }
             }
             kfree(path_so_far);
             goto_safe(ret_err);
@@ -176,10 +177,10 @@ void mount(void *path, fs_t *fs) {
         kprintf("Not a mount point\n");
         return;
     }
-    uint64_t fs_id;
+    uint64_t fs_id = 0;
     file.read(&file, &fs_id, sizeof(uint64_t));
     if (fs_id != 0) {
-        kprintf("already an occupied mount point!\n");
+        kprintf("already an occupied mount point![%05i]\n", fs_id);
         return;
     }
     fs_id = bsl_add(sysmap, fs);

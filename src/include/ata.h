@@ -97,8 +97,8 @@ struct ata_device {
 };
 
 void ata_init();
-uint64_t read_disk_raw(uint64_t, uint64_t, uint8_t *);
-uint64_t write_disk_raw(uint64_t, uint64_t, uint8_t *);
+uint64_t read_disk_raw(struct ata_device *, uint64_t, uint64_t, uint8_t *);
+uint64_t write_disk_raw(struct ata_device *, uint64_t, uint64_t, uint8_t *);
 
 void ata_device_read_sector(struct ata_device *, uint32_t, uint8_t *);
 void ata_device_write_sector(struct ata_device *, uint32_t, uint8_t *);
