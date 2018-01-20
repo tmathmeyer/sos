@@ -37,6 +37,10 @@ F_err i_rename(char *old_path, char *new_path);
 
 ctree_t *ROOT = NULL;
 
+F_err root_f_read(F *, void *, uint64_t, uint64_t *);
+F_err root_f_close(F *);
+F_err root_f_open(F *, char *, uint16_t);
+
 
 filesystem_t *create_root_filesystem(void) {
 	filesystem_t *result = kmalloc(sizeof(filesystem_t *));
