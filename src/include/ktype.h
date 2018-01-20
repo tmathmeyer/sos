@@ -15,4 +15,6 @@ typedef unsigned char           bool;
 
 #define NULL (void *)0
 
+#define bool int
+
 #endif

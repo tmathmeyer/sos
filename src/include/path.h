@@ -1,30 +1,21 @@
 #ifndef path_h
 #define path_h
 
-#define path_iterate(path, part, countdown) \
-    path_t __path = path_from_string(path); \
-    size_t __i; \
-    countdown = __path.count; \
-    for(part=__path.ptrs[0], __i=0; \
-        countdown--, \
-        part=((__i==__path.count-__path.has_trailing)? \
-            (path_repair(__path)): \
-            (__path.ptrs[__i])), \
-            __i<__path.count-__path.has_trailing; \
-        __i++)
-
-#define goto_safe(x) path_repair(__path); goto x;
+#include <ktype.h>
 
 typedef struct {
-    int count;
-    char *original;
-    char *ptrs[100];
-    int has_trailing;
+    uint16_t section;
+    uint16_t total_sections;
+    char *__inside_string;
+    char *string;
 } path_t;
 
-uint64_t count(char *, char);
-char *path_repair(path_t);
-path_t path_from_string(char *);
-char *path_join(char *a, char *b);
+path_t *_allocate_path(char *);
+void __path_next(path_t *);
 
+#define path_for_each(path, seg) \
+    for(seg=path->__inside_string; \
+        path->section<path->total_sections; \
+        __path_next(path),seg=path->__inside_string)
+    
 #endif
