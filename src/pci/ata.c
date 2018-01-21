@@ -1,11 +1,13 @@
-#include <ata.h>
-#include <pci.h>
-#include <interrupts.h>
-#include <libk.h>
-#include <kio.h>
-#include <mmu.h>
-#include <lock.h>
-#include <devfs.h>
+#include <pci/ata.h>
+#include <pci/pci.h>
+#include <pic/interrupts.h>
+
+#include <arch/lock.h>
+#include <mem/alloc.h>
+#include <mmu/mmu.h>
+#include <arch/io.h>
+
+#include <shell/shell.h>
 
 static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
 static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};

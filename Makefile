@@ -3,7 +3,7 @@
 # This stuff is all for building the kernel itself
 #
 ######
-kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64 -g
+kernel_flags := -nostdinc -Iinclude -fno-stack-protector -m64 -g
 arch ?= x86_64
 
 BUILD := build
@@ -54,21 +54,3 @@ $(ISO): $(KERNEL) $(GRUB_CFG)
 
 clean:
 	rm -rf build
-
-
-
-
-
-
-
-
-
-
-#####
-#
-# This stuff is for building the fuse system
-#
-#####
-fuse: src/fs/shittyfs.c src/include/shittyfs.h
-	mkdir -p $(BUILD)
-	gcc -DSTDLIB src/fs/shittyfs.c -o $(BUILD)/fuse

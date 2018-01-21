@@ -1,6 +1,6 @@
-#include "ktype.h"
-#include "libk.h"
-#include "chunk_allocator.h"
+#include <std/int.h>
+#include <mem/chunk_allocator.h>
+#include <shell/shell.h>
 
 struct segment_list *create_head(void *memory, uint64_t start, uint64_t end) {
     struct segment_list *result = memory;

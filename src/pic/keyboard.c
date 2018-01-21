@@ -1,9 +1,7 @@
-#include "interrupts.h"
-#include "keyboard.h"
-#include "ktype.h"
-#include "kio.h"
-#include "libk.h"
-
+#include <std/int.h>
+#include <pic/keyboard.h>
+#include <pic/interrupts.h>
+#include <arch/io.h>
 
 #define RINGSIZE 32
 uint64_t readdex = 0;

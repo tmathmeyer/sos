@@ -1,11 +1,9 @@
-#include "ktype.h"
-#include "interrupts.h"
-#include "libk.h"
-#include "kshell.h"
-#include "kio.h"
-#include "registers.h"
-#include "timer.h"
-#include "lock.h"
+#include <std/int.h>
+#include <pic/interrupts.h>
+#include <arch/io.h>
+#include <shell/shell.h>
+#include <arch/lock.h>
+#include <arch/registers.h>
 
 // static memory for the interrupt descriptor table
 idt_entry_t IDT[INTERRUPTS];

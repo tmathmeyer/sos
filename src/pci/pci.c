@@ -1,8 +1,9 @@
-#include "pci.h"
-#include "ktype.h"
-#include "kio.h"
+#include <std/int.h>
+#include <pci/pci.h>
+#include <arch/io.h>
+#include <shell/shell.h>
+
 #include "pci_vendor.h"
-#include "libk.h"
 
 
 static inline int pci_extract_bus(uint32_t device) {

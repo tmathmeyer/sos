@@ -1,13 +1,15 @@
-#include <libk.h>
-#include <multiboot.h>
-#include <interrupts.h>
-#include <mmu.h>
-#include <timer.h>
-#include <keyboard.h>
-#include <kshell.h>
-#include <time.h>
-#include <ata.h>
-#include <alloc.h>
+#include <std/int.h>
+
+#include <kernel/multiboot.h>
+#include <pci/ata.h>
+#include <mmu/mmu.h>
+#include <shell/shell.h>
+#include <pic/interrupts.h>
+#include <pic/timer.h>
+#include <pic/keyboard.h>
+#include <mem/alloc.h>
+#include <shell/tty.h>
+
 
 extern void load_idt(void);
 int kmain(struct multiboot_header *);

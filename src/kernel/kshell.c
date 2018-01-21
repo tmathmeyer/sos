@@ -1,10 +1,9 @@
-#include <kshell.h>
-#include <ktype.h>
-#include <libk.h>
-#include <kio.h>
-#include <mmu.h>
-#include <time.h>
-#include <pci.h>
+#include <shell/shell.h>
+#include <std/int.h>
+
+#include <mmu/mmu.h>
+#include <pci/pci.h>
+#include <arch/time.h>
 
 uint8_t keymap[][128] = {
     {0},

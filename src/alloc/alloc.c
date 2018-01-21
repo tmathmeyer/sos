@@ -1,5 +1,7 @@
-#include <ktype.h>
-#include <mmu.h>
+#include <std/int.h>
+#include <mmu/mmu.h>
+#include <std/string.h>
+#include <shell/shell.h>
 
 typedef struct huge_alloc_info_s {
 	uint64_t starting_page;
