@@ -1,5 +1,6 @@
 #include <std/int.h>
 #include <std/string.h>
+#include <mem/alloc.h>
 
 char hexr(char c) {
     switch(c) {
@@ -63,7 +64,7 @@ uint64_t hex2int(char *x) {
 }
 
 uint64_t strlen(char *c) {
-    uint64_t res = 0;
+    uint64_t res = 1;
     while(*c) {
         res++;
         c++;
@@ -85,4 +86,46 @@ void *memset(void *p, int b, size_t n) {
         *_p++ = b;
     }
     return p;
+}
+
+char *strdup(char *src) {
+    uint64_t len = strlen(src);
+    char *res = kmalloc(len);
+    if (src) {
+        memcpy(res, src, len);
+    }
+    return res;
+}
+
+char **split(char *str, char sep) {
+    uint64_t size = 1;
+    char *underlying = strdup(str);
+    while(*str) {
+        if (*str == sep) {
+            size++;
+        }
+        str++;
+    }
+
+    split_t *s = kmalloc(sizeof(split_t) + sizeof(char *)*size);
+    s->size = size;
+    for (int i=0; i<s->size;i++) {
+        s->__underlying__[i] = underlying;
+        if (i+1 < s->size) {
+            while(*underlying && *underlying != sep) {
+                underlying++;
+            }
+            if (*underlying == sep) {
+                *underlying = 0;
+                underlying++;
+            }
+        }
+    }
+
+    return s->__underlying__;
+}
+
+void split_free(char **_s) {
+    kfree(_s[0]);
+    kfree(&((split_t *)(_s))[-1]);
 }

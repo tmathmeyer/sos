@@ -10,5 +10,17 @@ uint64_t strlen(char *);
 void *memcpy(void *, void *, size_t);
 void *memset(void *, int b, size_t);
 char hexr(char);
+char *strdup(char *);
+
+typedef struct {
+    uint64_t size;
+    char *__underlying__[0];
+} split_t;
+
+char **split(char *, char);
+void split_free(char **);
+
+#define splitlen(strs) \
+    (((split_t *)(strs))[-1].size)
 
 #endif

@@ -12,6 +12,7 @@ ISO := $(BUILD)/os.iso
 LINKER_SCRIPT := src/asm/$(arch)/linker.ld
 GRUB_CFG := src/grub/grub.cfg
 SFSDISK := $(BUILD)/sfsdisk
+SOURCEDIR := ./src
 
 C_SRC := $(shell find $(SOURCEDIR) -name '*.c')
 C_OBJ := $(patsubst ./src/%, $(BUILD)/%, $(C_SRC:%.c=%.o))

@@ -113,3 +113,12 @@ void kfree(void *_ptr) {
 		}
 	}
 }
+
+void *kcmalloc(uint64_t size, uint64_t nmemb) {
+	size *= nmemb;
+	void *res = kmalloc(size);
+	if (res) {
+		memset(res, 0, size);
+	}
+	return res;
+}

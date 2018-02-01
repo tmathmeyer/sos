@@ -9,7 +9,8 @@
 #include <pic/keyboard.h>
 #include <mem/alloc.h>
 #include <shell/tty.h>
-
+#include <fs/root.h>
+#include <fs/kernel_fs.h>
 
 extern void load_idt(void);
 int kmain(struct multiboot_header *);
@@ -82,6 +83,10 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* enable a more fine tuned allocator */
     kmalloc_init();
+
+    /* setup the root filesystem */
+    root_init();
+    mount("kernel", kernel_fs_init());
     
     /* interrupt enable */
     setup_IDT();
@@ -94,6 +99,25 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* scan for ata devices on pci bus*/
     ata_init();
+
+    int f = open("/kernel/foo", 0);
+    kprintf("kernel_foo file_id = %03i\n", f);
+
+    int i = 7;
+    int bw = write(f, &i, 4);
+    kprintf("bytes written = %03i\n", bw);
+
+    close(f);
+
+    f = open("/kernel/foo", 0);
+    int j = 4;
+    int br = read(f, &j, 4);
+    kprintf("bytes read = %03i value = %03i\n", br, j);
+
+
+
+
+
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");
