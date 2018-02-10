@@ -9,7 +9,7 @@
 #include <pic/keyboard.h>
 #include <mem/alloc.h>
 #include <shell/tty.h>
-#include <fs/root.h>
+#include <fs/virtual_filesystem.h>
 #include <fs/kernel_fs.h>
 
 extern void load_idt(void);
@@ -100,19 +100,38 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* scan for ata devices on pci bus*/
     ata_init();
 
-    int f = open("/kernel/foo", 0);
+
+
+    /* demo space */
+    int f = open("/kernel/string", 0);
     kprintf("kernel_foo file_id = %03i\n", f);
-
-    int i = 7;
-    int bw = write(f, &i, 4);
+    char *kernel_name = "shitty operating system";
+    int bw = write(f, kernel_name, strlen(kernel_name));
     kprintf("bytes written = %03i\n", bw);
-
     close(f);
 
-    f = open("/kernel/foo", 0);
-    int j = 4;
-    int br = read(f, &j, 4);
-    kprintf("bytes read = %03i value = %03i\n", br, j);
+    char x[30] = {0};
+    f = open("/kernel/string", 0);
+    int br = read(f, x, 30);
+    kprintf("bytes read = %03i value = %03s\n", br, x);
+    close(f);
+
+
+    kprintf("%f4s\n", "===================================");
+    mkdir("/kernel/ata");
+    mkdir("/kernel/pci");
+
+
+    f = open("/kernel", 0);
+    kprintf("kernel directory = %03i\n", f);
+    char *ent = NULL;
+    while (!scan_dir(f, &ent)) {
+        if (ent) {
+            kprintf("ent: %03s\n", ent);
+        }
+    }
+
+
 
 
 

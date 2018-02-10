@@ -17,11 +17,11 @@ struct filesystem_s {
 	F_err (*f_eof)(F *file);
 	F_err (*f_size)(F *file, uint64_t *file_size);
 
-	F_err (*d_open)(D *dir, char *name, uint16_t mode);
-	F_err (*d_close)(D *dir);
-	F_err (*d_next)(D *dir, char **name);
-	F_err (*d_rewind)(D *dir);
-	F_err (*d_mkdir)(char *name);
+	F_err (*d_open)(F *dir, char *name, uint16_t mode);
+	F_err (*d_close)(F *dir);
+	F_err (*d_next)(F *dir, char **name);
+	F_err (*d_rewind)(F *dir);
+	F_err (*d_mkdir)(F *dir, char *name);
 
 	F_err (*i_stat)(S *stat, char *path);
 	F_err (*i_unlink)(char *path);
@@ -30,13 +30,34 @@ struct filesystem_s {
 
 */
 
+F_err kfs_nop() {
+	return NOT_IMPLEMENTED_ERROR;
+}
+
 filesystem_t *kernel_fs_init() {
 	filesystem_t *result = mfs_new_fs();
 
-	result->f_open = mfs_open;
-	result->f_close = mfs_close;
-	result->f_read = mfs_read;
-	result->f_write = mfs_write;
+	result->node_type = mfs_node_type;
+
+	result->f_open = mfs_f_open;
+	result->f_close = mfs_f_close;
+	result->f_read = mfs_f_read;
+	result->f_write = mfs_f_write;
+
+	result->f_lseek = (void *)mfs_f_lseek;
+	result->f_tell = (void *)mfs_f_tell;
+	result->f_eof = (void *)mfs_f_eof;
+	result->f_size = (void *)mfs_f_size;
+
+	result->d_open = (void *)mfs_d_open;
+	result->d_close = (void *)mfs_d_close;
+	result->d_next = (void *)mfs_d_next;
+	result->d_rewind = (void *)mfs_d_rewind;
+	result->d_mkdir = (void *)mfs_d_mkdir;
+
+
+	result->f_truncate = (void *)kfs_nop;
+	result->f_sync = (void *)kfs_nop;
 
 	return result;
 }
