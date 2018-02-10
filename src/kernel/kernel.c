@@ -84,15 +84,15 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* enable a more fine tuned allocator */
     kmalloc_init();
 
+    /* enable the scheduler */
+    init_timer();
+
     /* setup the root filesystem */
     root_init();
-    mount("kernel", kernel_fs_init());
+    mount("/", kernel_fs_init());
     
     /* interrupt enable */
     setup_IDT();
-
-    /* enable the scheduler */
-    init_timer();
 
     /* enable the keyboard */
     init_keyboard();
@@ -103,26 +103,26 @@ int kmain(struct multiboot_header *multiboot_info) {
 
 
     /* demo space */
-    int f = open("/kernel/string", 0);
-    kprintf("kernel_foo file_id = %03i\n", f);
+    int f = open("/string", 0);
+    kprintf("string file_id = %03i\n", f);
     char *kernel_name = "shitty operating system";
     int bw = write(f, kernel_name, strlen(kernel_name));
     kprintf("bytes written = %03i\n", bw);
     close(f);
 
     char x[30] = {0};
-    f = open("/kernel/string", 0);
+    f = open("/string", 0);
     int br = read(f, x, 30);
     kprintf("bytes read = %03i value = %03s\n", br, x);
     close(f);
 
 
     kprintf("%f4s\n", "===================================");
-    mkdir("/kernel/ata");
-    mkdir("/kernel/pci");
+    mkdir("/ata");
+    mkdir("/pci");
 
 
-    f = open("/kernel", 0);
+    f = open("/", 0);
     kprintf("kernel directory = %03i\n", f);
     char *ent = NULL;
     while (!scan_dir(f, &ent)) {

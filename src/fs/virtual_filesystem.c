@@ -41,55 +41,59 @@ int open(char *path, uint16_t FLAGS) {
 		return 0;
 	}
 
-	char **p = split(path, '/');
-
 	filesystem_t *fs;
 	int fid = 0;
 	F *f = next_available_file(&fid);
-	
+
+	char *maybe_mount = strdup(path);
+	int i = 0;
+	while(hashmap_get(mounts, maybe_mount, (void **)&fs)) {
+		if (maybe_mount[1] == 0) {
+			kprintf("could not find mount in %13s\n", path);
+			kfree(maybe_mount);
+			return 0;
+		}
+		char *next_attempt = dirname(maybe_mount);
+		kfree(maybe_mount);
+		maybe_mount = next_attempt;
+	}
+
+	int pathlen = strlen(path);
+	int mountlen = strlen(maybe_mount);
+	kfree(maybe_mount);
+
 	F_err (*OPEN)(F *, char *, uint16_t) = NULL;
 	char *PATH;
 
-	switch(splitlen(p)) {
-		case 0: /* Empty string, already checked, so it can't actually happen */
-		case 1: /* Empty string, already checked, so it can't actually happen */
-			goto error;
-		case 2: /* Directly open a mount point, as a directory */
-			if (hashmap_get(mounts, p[1], (void **)&fs)) {
-				goto error;
-			}
-			OPEN = fs->d_open;
-			PATH = "";
-			break;
-		default: /* Open some file or directory inside a mount */
-			if (hashmap_get(mounts, p[1], (void **)&fs)) {
-				goto error;
-			}
-			PATH = &path[strlen(p[1]) + 1];
-			switch(fs->node_type(PATH)) {
-				case FILE:
-					OPEN = fs->f_open;
-					break;
-				case DIRECTORY:
-					OPEN = fs->d_open;
-					break;
-				default:
-					goto error;
-			}
+	if (pathlen == mountlen) {
+		PATH = "";
+		OPEN = fs->d_open;
+	} else {
+		PATH = kmalloc(pathlen - mountlen + 1);
+		if (!PATH) {
+			return 0;
+		}
+		memcpy(PATH, &path[mountlen-1], pathlen-mountlen);
+		PATH[pathlen-mountlen] = 0;
+		switch(fs->node_type(PATH)) {
+			case FILE:
+				OPEN = fs->f_open;
+				break;
+			case DIRECTORY:
+				OPEN = fs->d_open;
+				break;
+			default:
+				return 0;
+		}
 	}
+
 	if (OPEN(f, PATH, FLAGS)) {
-		goto error;
+		kfree(PATH);
+		return 0;
 	}
+
 	f->fs = fs;
-	goto success;
-
-error:
-	kprintf("failed to open file (%05i) %04s\n", splitlen(p), path);
-	split_free(p);
-	return 0;
-
-success:
-	split_free(p);
+	kfree(PATH);
 	return fid;
 }
 
@@ -195,6 +199,9 @@ char *basename(char *path) {
 char *dirname(char *path) {
 	int s = strlen(path);
 	int baselen = countback_to(path, s-1, '/');
+	if (baselen == s-1) {
+		return strdup("/");
+	}
 	char *result = kcmalloc(sizeof(char), s-baselen);
 	if (!result) {
 		return NULL;
