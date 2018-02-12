@@ -120,6 +120,18 @@ void run_cmd(char *run) {
         print_pages();
     } else if (!strncmp(run, "time", 5)) {
         show_time();
+    } else if (!strncmp(run, "cat ", 4)) {
+        int f = open(run + 4, 0);
+        if (!f) {
+            kprintf("file not found\n");
+        } else {
+            char buf[17] = {0};
+            int in = 0;
+            while(in = read(f, buf, 16)) {
+                kprintf("%04s", buf);
+            }
+            kprintf("\n");
+        }
     } else {
         kprintf("INVALID COMMAND\n");
     }

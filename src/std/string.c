@@ -129,3 +129,40 @@ void split_free(char **_s) {
     kfree(_s[0]);
     kfree(&((split_t *)(_s))[-1]);
 }
+
+char *strcat(char *a, char *b) {
+    int _a = strlen(a);
+    int _b = strlen(b);
+
+    char *res = kmalloc(_a + _b + 1);
+    if (!res) {
+        return res;
+    }
+    memcpy(&res[0], a, _a-1);
+    memcpy(&res[_a-1], b, _b);
+    return res;
+}
+
+char *smart_join(char *a, char *b, char sep) {
+    int _a = strlen(a);
+    int _b = strlen(b);
+
+    if (b[0] == sep) {
+        b++;
+        _b--;
+    }
+
+    if (a[_a-2] == sep) {
+        _a--;
+    }
+
+    char *res = kmalloc(_a + _b + 1);
+    if (!res) {
+        return res;
+    }
+
+    memcpy(&res[0], a, _a-1);
+    res[_a-1] = sep;
+    memcpy(&res[_a], b, _b);
+    return res;
+}

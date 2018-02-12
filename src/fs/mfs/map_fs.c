@@ -26,29 +26,33 @@ F_type mfs_node_type(char *name) {
 		return INVALID;
 	}
 	map_t dir = root;
-	d_f *dir_or_file;
+	d_f *dir_or_file = &__root__;
 	char **path = split(name, '/');
-	for(int i=1; i<splitlen(path); i++) {
-		if (hashmap_get(dir, path[i-1], (void **)&dir_or_file)) {
-			goto err;
-		}
+	for(int i=0; i<splitlen(path); i++) {
+
 		if (dir_or_file->type == MAP_FILE) {
-			goto err;
+			split_free(path);
+			return INVALID;
 		}
+
+		if (hashmap_get(dir, path[i], (void **)&dir_or_file)) {
+			goto out;
+		}
+
 		dir = dir_or_file->dir;
 	}
 
-	if (dir_or_file->type == MAP_DIR) {
-		split_free(path);
-		return DIRECTORY;
-	} else {
-		split_free(path);
-		return FILE;
-	}
-
-err:
+out:
 	split_free(path);
-	return INVALID;
+
+	switch(dir_or_file->type) {
+		case MAP_DIR:
+			return DIRECTORY;
+		case MAP_FILE:
+			return FILE;
+		default:
+			return INVALID;
+	}
 }
 
 F_err mfs_f_open(F *file, char *name, uint16_t mode) {
@@ -211,8 +215,11 @@ F_err mfs_d_open(F *dir, char *name, uint16_t mode) {
 	map_t _dir = root;
 	d_f *dir_or_file = &__root__;
 	char **path = split(name, '/');
-	for(int i=1; i<splitlen(path); i++) {
-		if (hashmap_get(_dir, path[i-1], (void **)&dir_or_file)) {
+	for(int i=0; i<splitlen(path); i++) {
+		if (path[i][0] == 0) {
+			break;
+		}
+		if (hashmap_get(_dir, path[i], (void **)&dir_or_file)) {
 			goto err;
 		}
 		if (dir_or_file->type == MAP_FILE) {
@@ -239,15 +246,19 @@ err:
 F_err mfs_d_close(F *dir) {
 	dir->fs = NULL;
 	dir->__open__ = false;
-	dir->__data__ = NULL;
 	dir->__position__ = 0;
 
 	d_f *d_data = (d_f *)dir->__data__;
+	dir->__data__ = NULL;
+
 	if (d_data->other != NULL) {
 		hashmap_iterator_done(d_data->other);
+		d_data->other = NULL;
 	}
+	return NO_ERROR;
 }
 
+int asd = 0;
 F_err mfs_d_next(F *dir, char **name) {
 	FAIL_ON(!dir);
 	FAIL_ON(!dir->__open__);
@@ -260,8 +271,11 @@ F_err mfs_d_next(F *dir, char **name) {
 			return FILESYSTEM_ERROR;
 		}
 	}
+
 	if (hashmap_iterator_has_next(d_data->other)) {
 		*name = hashmap_iterator_next(d_data->other)->key;
+		while(asd == 3);
+		asd++;
 	} else {
 		*name = NULL;
 	}

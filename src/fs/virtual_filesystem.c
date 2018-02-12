@@ -82,8 +82,14 @@ int open(char *path, uint16_t FLAGS) {
 			case DIRECTORY:
 				OPEN = fs->d_open;
 				break;
-			default:
-				return 0;
+			case INVALID:
+				if (FLAGS && CREATE_ON_OPEN) {
+					OPEN = fs->f_open;
+				} else {
+					kfree(PATH);
+					return 0;
+				}
+				break;
 		}
 	}
 
@@ -123,8 +129,21 @@ int write(int fd, void *src, uint64_t bytes) {
 }
 
 int close(int fd) {
+	F_err (*CLOSE)(F *);
 	if (files[fd].__open__) {
-		return files[fd].fs->f_close(&files[fd]);
+		switch(files[fd].__type__) {
+			case DIRECTORY:
+				CLOSE = files[fd].fs->d_close;
+				break;
+			case FILE:
+				CLOSE = files[fd].fs->f_close;
+				break;
+			default:
+				CLOSE = files[fd].fs->f_close;
+				break;
+		}
+
+		return CLOSE(&files[fd]);
 	}
 	return 1;
 }
@@ -157,7 +176,6 @@ int mkdir(char *dir) {
 	if (files[fd].fs->d_mkdir(&files[fd], child)) {
 		ret = 1;
 	}
-	
 	close(fd);
 
 failed:
@@ -169,7 +187,13 @@ kill_parent:
 
 int scan_dir(int fd, char **name) {
 	if (files[fd].__open__) {
-		return files[fd].fs->d_next(&files[fd], name);
+		F_err e = files[fd].fs->d_next(&files[fd], name);
+		if (e) {
+			return e;
+		}
+		if (*name != NULL) {
+			return 0;
+		}
 	}
 	return 1;
 }
@@ -210,4 +234,47 @@ char *dirname(char *path) {
 	memcpy(result, path, s-baselen-1);
 	result[s-baselen-1] = 0;
 	return result;
+}
+
+bool is_dir(char *path) {
+	int f = open(path, 0);
+	if (!f) {
+		return false;
+	}
+	bool result = files[f].__type__ == DIRECTORY;;
+	close(f);
+	return result;
+}
+
+void repeat(int indent, char *c) {
+	while(indent --> 0) {
+		kprintf(c);
+	}
+}
+
+void _tree(char *path, int indent) {
+	repeat(indent, "  ");
+	kprintf("(d) %03s\n", path);
+
+	int f = open(path, 0);
+	if (!f) {
+		return;
+	}
+
+    char *ent = NULL;
+    while (!scan_dir(f, &ent)) {
+        char *e = smart_join(path, ent, '/');
+        if (is_dir(e)) {
+        	_tree(e, indent+1);
+        } else {
+        	repeat(indent+1, "  ");
+        	kprintf("(f) %03s\n", e);
+        }
+        kfree(e);
+    }
+    close(f);
+}
+
+void tree(char *path) {
+	_tree(path, 0);
 }

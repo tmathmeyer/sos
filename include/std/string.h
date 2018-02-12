@@ -11,6 +11,8 @@ void *memcpy(void *, void *, size_t);
 void *memset(void *, int b, size_t);
 char hexr(char);
 char *strdup(char *);
+char *strcat(char *, char *);
+char *smart_join(char *, char *, char);
 
 typedef struct {
     uint64_t size;

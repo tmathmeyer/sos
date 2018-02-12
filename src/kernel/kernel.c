@@ -103,34 +103,8 @@ int kmain(struct multiboot_header *multiboot_info) {
 
 
     /* demo space */
-    int f = open("/string", 0);
-    kprintf("string file_id = %03i\n", f);
-    char *kernel_name = "shitty operating system";
-    int bw = write(f, kernel_name, strlen(kernel_name));
-    kprintf("bytes written = %03i\n", bw);
-    close(f);
-
-    char x[30] = {0};
-    f = open("/string", 0);
-    int br = read(f, x, 30);
-    kprintf("bytes read = %03i value = %03s\n", br, x);
-    close(f);
-
-
     kprintf("%f4s\n", "===================================");
-    mkdir("/ata");
-    mkdir("/pci");
-
-
-    f = open("/", 0);
-    kprintf("kernel directory = %03i\n", f);
-    char *ent = NULL;
-    while (!scan_dir(f, &ent)) {
-        if (ent) {
-            kprintf("ent: %03s\n", ent);
-        }
-    }
-
+    tree("/");
 
 
 

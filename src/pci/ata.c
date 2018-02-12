@@ -7,6 +7,8 @@
 #include <mmu/mmu.h>
 #include <arch/io.h>
 
+#include <fs/virtual_filesystem.h>
+
 #include <shell/shell.h>
 
 static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
@@ -458,6 +460,10 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     }
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
         if (ata_device_init(dev, ata_dev)) {
+            char *e = strcat("/ata/", ATA_dev_name);
+            int f = open(e, CREATE_ON_OPEN);
+            write(f, &dev, sizeof(void *));
+            close(f);
             kprintf("device[%05s] address = %05x\n", ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
@@ -482,6 +488,7 @@ uint64_t write_disk_raw(struct ata_device *dev, uint64_t addr, uint64_t chars, u
 }
 
 void ata_init() {
+    mkdir("/ata");
     uint32_t ata_dev = 0;
     memcpy(ATA_dev_name, "hda", 4);
     memcpy(ATAPI_dev_name, "eda", 4);
