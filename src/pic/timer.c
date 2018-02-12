@@ -1,7 +1,7 @@
-#include "timer.h"
-#include "kio.h"
-#include "libk.h"
-#include "interrupts.h"
+
+#include <arch/io.h>
+#include <pic/timer.h>
+#include <pic/interrupts.h>
 
 int i = 0;
 int j = 0;

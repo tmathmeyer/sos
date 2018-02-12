@@ -1,5 +1,5 @@
-#include "libk.h"
-#include "multiboot.h"
+#include <std/int.h>
+#include <kernel/multiboot.h>
 
 int valid_multiboot(struct multiboot_header *header) {
 	const struct tag END = {.type=0, .flags=0, .size=8};

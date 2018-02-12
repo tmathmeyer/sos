@@ -1,5 +1,7 @@
-#include <ktype.h>
-#include <mmu.h>
+#include <std/int.h>
+#include <mmu/mmu.h>
+#include <std/string.h>
+#include <shell/shell.h>
 
 typedef struct huge_alloc_info_s {
 	uint64_t starting_page;
@@ -67,11 +69,13 @@ allocate:
 }
 
 void *kmalloc(uint64_t size) {
+	void *x = NULL;
 	if (size <= 64) {
-		return kmalloc_tiny();
+		x = kmalloc_tiny();
 	} else {
-		return kmalloc_huge(size);
+		x = kmalloc_huge(size);
 	}
+	return x;
 }
 
 void free_tiny(uint64_t addr, size_t index) {
@@ -92,7 +96,7 @@ void kfree(void *_ptr) {
 		uint64_t page_start = starting_address(head_page->bitmask[i].page_addr);
 		if (ptr>page_start && ptr<page_start+PAGE_SIZE) {
 			free_tiny(ptr, i);
-			memset(_ptr, 0xAF, 64); // we asan now
+			memset(_ptr, 0xBF, 64); // we asan now
 			return;
 		}
 	}
@@ -110,4 +114,13 @@ void kfree(void *_ptr) {
 			head_page->allocations[i].pages = 0;
 		}
 	}
+}
+
+void *kcmalloc(uint64_t size, uint64_t nmemb) {
+	size *= nmemb;
+	void *res = kmalloc(size);
+	if (res) {
+		memset(res, 0, size);
+	}
+	return res;
 }

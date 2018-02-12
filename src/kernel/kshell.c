@@ -1,10 +1,10 @@
-#include <kshell.h>
-#include <ktype.h>
-#include <libk.h>
-#include <kio.h>
-#include <mmu.h>
-#include <time.h>
-#include <pci.h>
+#include <shell/shell.h>
+#include <std/int.h>
+
+#include <mmu/mmu.h>
+#include <pci/pci.h>
+#include <arch/time.h>
+#include <fs/virtual_filesystem.h>
 
 uint8_t keymap[][128] = {
     {0},
@@ -121,18 +121,20 @@ void run_cmd(char *run) {
         print_pages();
     } else if (!strncmp(run, "time", 5)) {
         show_time();
-    } else if (!strncmp(run, "mkfs", 4)) {
-        /*
-        kprintf("Getting device: %04s\n", run+5);
-        fs_t *fs = get_device(run+5);
-        if (fs) {
-            mkfs_sfs(fs);
-        } else {
-            kprintf("Device not present!\n");
-        }
-        */
     } else if (!strncmp(run, "cat ", 4)) {
-        
+        int f = open(run + 4, 0);
+        if (!f) {
+            kprintf("file not found\n");
+        } else {
+            char buf[17] = {0};
+            int in = 0;
+            while(in = read(f, buf, 16)) {
+                kprintf("%04s", buf);
+            }
+            kprintf("\n");
+        }
+    } else if (!strncmp(run, "tree ", 5)) {
+        tree(run + 5);
     } else {
         kprintf("INVALID COMMAND\n");
     }

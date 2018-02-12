@@ -3,7 +3,9 @@
 # This stuff is all for building the kernel itself
 #
 ######
-kernel_flags := -nostdinc -Isrc/include -fno-stack-protector -m64 -g
+VERSION := alpha-1
+
+kernel_flags := -nostdinc -Iinclude -fno-stack-protector -m64 -g -DSOS_VERSION='"$(VERSION)"'
 arch ?= x86_64
 
 BUILD := build
@@ -12,6 +14,7 @@ ISO := $(BUILD)/os.iso
 LINKER_SCRIPT := src/asm/$(arch)/linker.ld
 GRUB_CFG := src/grub/grub.cfg
 SFSDISK := $(BUILD)/sfsdisk
+SOURCEDIR := ./src
 
 C_SRC := $(shell find $(SOURCEDIR) -name '*.c')
 C_OBJ := $(patsubst ./src/%, $(BUILD)/%, $(C_SRC:%.c=%.o))
@@ -25,8 +28,11 @@ qemu: $(ISO) $(SFSDISK)
 bochs: $(ISO)
 	@bochs -q
 
+debugq: kernel_flags += -DDEBUG
 debugq: $(ISO) $(SFSDISK)
-	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK)
+	@objcopy --only-keep-debug $(KERNEL) $(BUILD)/symbols
+	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK) -s -S &
+	@gdb
 
 $(SFSDISK): 
 	dd if=/dev/zero of=$@  bs=200K  count=1
@@ -54,21 +60,3 @@ $(ISO): $(KERNEL) $(GRUB_CFG)
 
 clean:
 	rm -rf build
-
-
-
-
-
-
-
-
-
-
-#####
-#
-# This stuff is for building the fuse system
-#
-#####
-fuse: src/fs/shittyfs.c src/include/shittyfs.h
-	mkdir -p $(BUILD)
-	gcc -DSTDLIB src/fs/shittyfs.c -o $(BUILD)/fuse

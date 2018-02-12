@@ -1,7 +1,8 @@
-#include <chunk_allocator.h>
-#include <ktype.h>
-#include <mmu.h>
-#include <libk.h>
+#include <mem/chunk_allocator.h>
+#include <std/int.h>
+#include <std/string.h>
+#include <mmu/mmu.h>
+#include <shell/shell.h>
 
 /*
  * Static variables

@@ -1,5 +1,6 @@
 global long_mode
 global load_idt
+global unwind
 
 extern kmain
 extern interrupt_handler
@@ -8,7 +9,9 @@ extern common_handler
 section .text
 bits 64
 long_mode:
-	call kmain
+    xor rbp, rbp       ; Set %rbp to NULL
+    push rbp            ; Push a NULL return address to the stack
+    call kmain
     mov rax, 0x2f592f412f4b2f4f
     mov qword [0xb8000], rax
     hlt
@@ -104,3 +107,35 @@ mov   al, [esp + 4 + 4]
 out   dx, al  
 ret
 
+unwind:
+    push rbx
+    push rbp
+    ; RDI -> r8 = our array
+    ; RSI -> r9 = array size
+    ; r7 -> how many we found
+    mov r8, rdi
+    mov r9, rsi
+    xor r10, r10
+    xor r11, r11
+
+.walk:
+    test r9, r9
+    jz .done
+    dec r9
+
+    mov rdx, [rbp + 8] ;rdx now has the previous frame's ins ptr
+    test rdx, rdx
+    mov [r8], r11
+    jz .done
+
+    mov rbp, [rbp + 0] ;back pointer for prev frame
+    mov [r8], rdx
+    add r8, 8
+    inc r10
+    loop .walk
+
+.done:
+    mov rax, r10
+    pop rbp
+    pop rbx
+    ret

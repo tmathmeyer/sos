@@ -1,15 +1,17 @@
-#include <libk.h>
-#include <multiboot.h>
-#include <interrupts.h>
-#include <mmu.h>
-#include <timer.h>
-#include <keyboard.h>
-#include <kshell.h>
-#include <time.h>
-#include <ata.h>
-#include <vfs.h>
-#include <devfs.h>
-#include <alloc.h>
+#include <std/int.h>
+
+#include <kernel/multiboot.h>
+#include <pci/ata.h>
+#include <mmu/mmu.h>
+#include <shell/shell.h>
+#include <pic/interrupts.h>
+#include <pic/timer.h>
+#include <pic/keyboard.h>
+#include <mem/alloc.h>
+#include <shell/tty.h>
+#include <fs/virtual_filesystem.h>
+#include <fs/kernel_fs.h>
+#include <kernel/kernel_info.h>
 
 extern void load_idt(void);
 int kmain(struct multiboot_header *);
@@ -82,21 +84,24 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* enable a more fine tuned allocator */
     kmalloc_init();
-    
-    /* interrupt enable */
-    setup_IDT();
-
-    /* enable block device mappings */
-    vfs_init();
-    devfs_init();
 
     /* enable the scheduler */
     init_timer();
 
+    /* setup the root filesystem */
+    root_init();
+    mount("/", kernel_fs_init());
+
+    /* setup kernel information */
+    kernel_info_init();
+    
+    /* interrupt enable */
+    setup_IDT();
+
     /* enable the keyboard */
     init_keyboard();
 
-    /* scan for ata devices on pci bug*/
+    /* scan for ata devices on pci bus*/
     ata_init();
 
     /* start interactive kernel shell */
