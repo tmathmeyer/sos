@@ -2,3 +2,4 @@
 *.swo
 *.o
 build/
+.gdb_history

@@ -14,6 +14,8 @@ enum {
 	ARGUMENT_ERROR = 2,
 	NOT_IMPLEMENTED_ERROR = 3,
 	FILESYSTEM_ERROR = 4,
+	FILE_IN_USE = 5,
+	DIRECTORY_NOT_EMPTY = 6,
 } F_err;
 
 typedef
@@ -32,6 +34,7 @@ struct {
 	void *__data__;
 	struct filesystem_s *fs;
 	F_type __type__;
+	char *opened_as;
 } F;
 
 typedef
@@ -59,7 +62,7 @@ struct filesystem_s {
 	F_err (*d_next)(F *dir, char **name);
 	F_err (*d_rewind)(F *dir);
 	F_err (*d_mkdir)(F *dir, char *name);
-	F_err (*d_delete)(F *dir);
+	F_err (*d_delete)(F *dir, char *name);
 
 	/* Status operations */
 	F_err (*i_stat)(S *stat, char *path);

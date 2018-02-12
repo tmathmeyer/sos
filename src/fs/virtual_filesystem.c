@@ -100,6 +100,7 @@ int open(char *path, uint16_t FLAGS) {
     }
 
     f->fs = fs;
+    f->opened_as = strdup(path);
     kfree(PATH);
     return fid;
 }
@@ -122,7 +123,8 @@ int write(int fd, void *src, uint64_t bytes) {
         return 0;
     }
     uint64_t wrote;
-    if (files[fd].fs->f_write(&files[fd], src, bytes, &wrote)) {
+    int err = files[fd].fs->f_write(&files[fd], src, bytes, &wrote);
+    if (err) {
         return 0;
     }
 
@@ -144,7 +146,11 @@ int close(int fd) {
                 break;
         }
 
-        return CLOSE(&files[fd]);
+        int x = CLOSE(&files[fd]);
+        if (!x) {
+            kfree(files[fd].opened_as);
+        }
+        return x;
     }
     return 1;
 }
@@ -268,7 +274,7 @@ void _tree(char *path, int indent) {
         switch(node_type(e)) {
             case FILE:
                 repeat(indent+1, "  ");
-                kprintf("(f) %03s [%03s]\n", e, ent);
+                kprintf("(f) %03s\n", e, ent);
                 break;
             case INVALID:
                 repeat(indent+1, "  ");
@@ -296,5 +302,48 @@ void tree(char *path) {
 }
 
 int delete(char *path) {
+    char *base = dirname(path);
+    if (!base) {
+        return 1;
+    }
 
+    int fd = open(base, 0);
+    kfree(base);
+
+    if (!fd) {
+        return 1;
+    }
+
+    char *filename = basename(path);
+    if (!filename) {
+        close(fd);
+        return 1;
+    }
+
+    int result = files[fd].fs->d_delete(&files[fd], filename);
+    close(fd);
+    return result;
+}
+
+void show() {
+    for(int i=1; i<MAX_FILES; i++) {
+        if (files[i].__open__) {
+            kprintf("fd #%03i opened as %03s\n", i, files[i].opened_as);
+        }
+    }
+}
+
+
+char *F_err_str[] = {
+    "NO ERROR",
+    "FILE_NOT_FOUND",
+    "ARGUMENT_ERROR",
+    "NOT_IMPLEMENTED_ERROR",
+    "FILESYSTEM_ERROR",
+    "FILE_IN_USE",
+    "DIRECTORY_NOT_EMPTY"
+};
+
+char *err2msg(F_err err) {
+    return F_err_str[err];
 }

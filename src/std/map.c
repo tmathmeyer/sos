@@ -195,7 +195,7 @@ int hashmap_get(map_t in, char* key, void **arg) {
 
 	for(int i = 0; i<MAX_CHAIN_LENGTH; i++) {
         if (m->data[curr].in_use) {
-            if (strncmp(m->data[curr].key,key,0)==0) {
+            if (strcmp(m->data[curr].key,key)==0) {
                 *arg = (m->data[curr].data);
                 return MAP_OK;
             }
@@ -231,7 +231,7 @@ int hashmap_remove(map_t in, char *key) {
 	return MAP_MISSING;
 }
 
-void hashmap_kfree(map_t in) {
+void hashmap_free(map_t in) {
 	hashmap_map* m = (hashmap_map*) in;
 	for(int i = 0; i < m->table_size; i++) {
         if (m->data[i].in_use) {
@@ -265,7 +265,7 @@ map_t hashmap_new() {
 
 	err:
 	if (m) {
-		hashmap_kfree(m);
+		hashmap_free(m);
 	}
 	return NULL;
 }

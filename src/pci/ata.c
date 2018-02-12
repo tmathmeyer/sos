@@ -486,7 +486,6 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
             char *e = strcat("/ata/", ATA_dev_name);
             write_block_device_from_ata(e, dev);
             kfree(e);
-            kprintf("device[%05s] address = %05x\n", ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
         return 1;
@@ -496,7 +495,6 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
             char *e = strcat("/ata/", ATA_dev_name);
             write_block_device_from_ata(e, dev);
             kfree(e);
-            kprintf("device[%05s] address = %05x\n", ATAPI_dev_name, dev);
             ATAPI_dev_name[2]++;
         }
         return 2;

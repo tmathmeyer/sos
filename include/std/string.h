@@ -4,6 +4,7 @@
 #include <std/int.h>
 
 int strncmp(char *, char *, size_t);
+int strcmp(char *, char *);
 char *strfnd(char *, char);
 uint64_t hex2int(char *);
 uint64_t strlen(char *);

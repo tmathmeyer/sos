@@ -29,6 +29,20 @@ char hexr(char c) {
     }
 }
 
+int strcmp(char *a, char *b) {
+    while(*a && *b) {
+        if (*a != *b) {
+            return 1;
+        }
+        a++;
+        b++;
+    }
+    if (*a || *b) {
+        return 1;
+    }
+    return 0;
+}
+
 int strncmp(char *a, char *b, size_t len) {
     while(len-- && *a && *b) {
         if (*a != *b) {

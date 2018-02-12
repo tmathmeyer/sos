@@ -133,6 +133,8 @@ void run_cmd(char *run) {
             }
             kprintf("\n");
         }
+    } else if (!strncmp(run, "tree ", 5)) {
+        tree(run + 5);
     } else {
         kprintf("INVALID COMMAND\n");
     }

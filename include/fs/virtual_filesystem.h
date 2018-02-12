@@ -17,6 +17,8 @@ F_type node_type(char *path);
 void tree(char *path);
 char *basename(char *);
 char *dirname(char *);
+char *err2msg(F_err);
+void show();
 
 
 #endif

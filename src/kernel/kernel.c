@@ -11,7 +11,7 @@
 #include <shell/tty.h>
 #include <fs/virtual_filesystem.h>
 #include <fs/kernel_fs.h>
-#include <arch/misc.h>
+#include <kernel/kernel_info.h>
 
 extern void load_idt(void);
 int kmain(struct multiboot_header *);
@@ -91,6 +91,9 @@ int kmain(struct multiboot_header *multiboot_info) {
     /* setup the root filesystem */
     root_init();
     mount("/", kernel_fs_init());
+
+    /* setup kernel information */
+    kernel_info_init();
     
     /* interrupt enable */
     setup_IDT();
@@ -100,18 +103,6 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* scan for ata devices on pci bus*/
     ata_init();
-
-
-
-    /* demo space */
-    kprintf("%f4s\n", "===================================");
-    tree("/");
-
-
-
-
-
-
 
     /* start interactive kernel shell */
     kprintf("%04s", "SOS$ ");

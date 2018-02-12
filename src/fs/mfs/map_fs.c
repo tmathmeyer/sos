@@ -188,7 +188,7 @@ F_err mfs_f_write(F *file, void *src, uint64_t to_write, uint64_t *actually_wrot
 	FAIL_ON(!file->__open__);
 	FAIL_ON(!src);
 	FAIL_ON(!to_write);
-	FAIL_ON(file->__type__ != FILE);
+	FAIL_ON(file->__type__ != FILE && file->__type__ != BLOCK_DEVICE);
 	*actually_wrote = 0;
 
 	d_f *fdata = (d_f *)file->__data__;
@@ -396,4 +396,37 @@ F_err mfs_d_delete(F *dir, char *name) {
 
 	map_t *map = d_data->dir;
 	FAIL_ON(!map);
+
+	d_f *dir_or_file = NULL;
+	if (hashmap_get(map, name, (void **)&dir_or_file)) {
+		return FILE_NOT_FOUND;
+	}
+
+	spin_lock(&dir_or_file->reflock);
+	if(dir_or_file->refcount) {
+		spin_unlock(&dir_or_file->reflock);
+		return FILE_IN_USE;
+	}
+
+	if (hashmap_remove(map, name)) {
+		spin_unlock(&dir_or_file->reflock);
+		return FILESYSTEM_ERROR;
+	}
+
+	if (dir_or_file->type == MAP_DIR) {
+		if (hashmap_size(dir_or_file->dir)) {
+			spin_unlock(&dir_or_file->reflock);
+			return DIRECTORY_NOT_EMPTY;
+		}
+		if (dir_or_file->other) {
+			kfree(dir_or_file->other);
+		}
+		hashmap_free(dir_or_file->dir);
+	} else {
+		kfree(dir_or_file->data);
+	}
+
+	kfree(dir_or_file);
+	spin_unlock(&dir_or_file->reflock);
+	return NO_ERROR;
 }
