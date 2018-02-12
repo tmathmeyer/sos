@@ -91,10 +91,6 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 			goto err;
 		}
 
-		if (mode & CREATE_ON_OPEN) {
-			kprintf("creating file [%03s]\n", entry);
-		}
-
 		if (mode & CREATE_BLOCK_DEVICE) {
 			dir_or_file->type = MAP_BLOCK;
 		} else {
