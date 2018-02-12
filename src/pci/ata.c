@@ -8,6 +8,8 @@
 #include <arch/io.h>
 
 #include <fs/virtual_filesystem.h>
+#include <fs/fs.h>
+#include <std/string.h>
 
 #include <shell/shell.h>
 
@@ -444,6 +446,27 @@ static uint32_t read_ata(struct ata_device *dev, uint32_t offset, uint32_t size,
     return size;
 }
 
+uint64_t ata_block_read(block_device_t *b, uint64_t addr, uint64_t chars, uint8_t *data) {
+    return read_ata(b->__private__, addr, chars, data);
+}
+
+uint64_t ata_block_write(block_device_t *b, uint64_t addr, uint64_t chars, uint8_t *data) {
+    return write_ata(b->__private__, addr, chars, data);
+}
+
+void write_block_device_from_ata(char *path, struct ata_device *dev) {
+    block_device_t device;
+    device.__private__ = path;
+    device.write = ata_block_write;
+    device.read = ata_block_read;
+
+    int fd = open(path, CREATE_ON_OPEN | CREATE_BLOCK_DEVICE);
+    if (!fd) {
+        return;
+    }
+    write(fd, &device, sizeof(block_device_t));
+    close(fd);
+}
 
 static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     ata_soft_reset(dev);
@@ -461,9 +484,8 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     if ((cl == 0x00 && ch == 0x00) || (cl == 0x3C && ch == 0xC3)) {
         if (ata_device_init(dev, ata_dev)) {
             char *e = strcat("/ata/", ATA_dev_name);
-            int f = open(e, CREATE_ON_OPEN);
-            write(f, &dev, sizeof(void *));
-            close(f);
+            write_block_device_from_ata(e, dev);
+            kfree(e);
             kprintf("device[%05s] address = %05x\n", ATA_dev_name, dev);
             ATA_dev_name[2]++;
         }
@@ -471,6 +493,9 @@ static int ata_device_detect(struct ata_device *dev, uint32_t ata_dev) {
     } else if ((cl == 0x14 && ch == 0xEB) ||
             (cl == 0x69 && ch == 0x96)) {
         if (atapi_device_init(dev, ata_dev)) {
+            char *e = strcat("/ata/", ATA_dev_name);
+            write_block_device_from_ata(e, dev);
+            kfree(e);
             kprintf("device[%05s] address = %05x\n", ATAPI_dev_name, dev);
             ATAPI_dev_name[2]++;
         }

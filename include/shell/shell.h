@@ -33,4 +33,6 @@ static inline void error_stack_dump(char *msg, char *file, uint32_t line_no) {
     kprintf("%cfs%4fs\n%4fs:%4fx\n", "ERROR: ", msg, file, line_no);
 }
 
+#define DBGME() do {kprintf("%9cs:%9ci\n", __func__, __LINE__);}while(0)
+
 #endif

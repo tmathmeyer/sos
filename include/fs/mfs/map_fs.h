@@ -8,7 +8,8 @@
 typedef
 enum {
 	MAP_FILE,
-	MAP_DIR
+	MAP_DIR,
+	MAP_BLOCK,
 } TYPE;
 
 typedef

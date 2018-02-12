@@ -5,7 +5,4 @@
 
 filesystem_t *kernel_fs_init();
 
-
-
-
 #endif

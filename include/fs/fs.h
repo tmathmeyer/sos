@@ -4,6 +4,9 @@
 #include <std/int.h>
 
 
+#define CREATE_ON_OPEN 0x01
+#define CREATE_BLOCK_DEVICE 0x02
+
 typedef
 enum {
 	NO_ERROR = 0,
@@ -18,7 +21,8 @@ enum {
 	FILE = 0,
 	DIRECTORY = 1,
 	SYMLINK = 2,
-	INVALID = 3,
+	BLOCK_DEVICE = 3,
+	INVALID = 4,
 } F_type;
 
 typedef
@@ -65,6 +69,13 @@ struct filesystem_s {
 
 	void *__internal__;
 } filesystem_t;
+
+typedef
+struct block_device_s {
+	uint64_t (*read)(struct block_device_s *, uint64_t offset, uint64_t length, uint8_t *dest);
+	uint64_t (*write)(struct block_device_s *, uint64_t offset, uint64_t length, uint8_t *src);
+	void *__private__;
+} block_device_t;
 
 
 #endif

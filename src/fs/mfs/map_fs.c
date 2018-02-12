@@ -45,11 +45,14 @@ F_type mfs_node_type(char *name) {
 out:
 	split_free(path);
 
+	/* NOTE: this does not support symlinks */
 	switch(dir_or_file->type) {
 		case MAP_DIR:
 			return DIRECTORY;
 		case MAP_FILE:
 			return FILE;
+		case MAP_BLOCK:
+			return BLOCK_DEVICE;
 		default:
 			return INVALID;
 	}
@@ -73,7 +76,11 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 	}
 	if (hashmap_get(dir, path[splitlen(path)-1], (void **)&dir_or_file)) {
 		dir_or_file = kmalloc(sizeof(d_f));
-		dir_or_file->type = MAP_FILE;
+		if (mode & CREATE_BLOCK_DEVICE) {
+			dir_or_file->type = MAP_BLOCK;
+		} else {
+			dir_or_file->type = MAP_FILE;
+		}
 		dir_or_file->data = NULL;
 		dir_or_file->other = NULL;
 		dir_or_file->size = 0;
@@ -89,7 +96,17 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 	file->__position__ = 0;
 	file->__open__ = true;
 	file->__data__ = dir_or_file;
-	file->__type__ = FILE;
+	switch(dir_or_file->type) {
+		case MAP_FILE:
+			file->__type__ = FILE;
+			break;
+		case MAP_BLOCK:
+			file->__type__ = BLOCK_DEVICE;
+			break;
+		default:
+			kprintf("kernel filesystem open failed\n");
+			while(1);
+	}
 	file->fs = filesystem;
 	return NO_ERROR;
 
