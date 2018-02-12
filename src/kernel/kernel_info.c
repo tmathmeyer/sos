@@ -15,7 +15,7 @@ void kernel_info_init() {
                        "  build date: " __DATE__ "\n"
                        "  build time: " __TIME__ "\n"
                        "  gcc compiler version: " __VERSION__ "\n"
-                       "  build version: " SOS_VERSION "\n"
+                       "  build version: " SOS_VERSION "\n";
     int wb = write(fd, build_info, strlen(build_info));
     if (wb < 10) {
     	kprintf("(%06i) %05s\n", wb, "failed to write kernel info to file");
