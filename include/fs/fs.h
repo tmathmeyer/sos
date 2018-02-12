@@ -59,6 +59,7 @@ struct filesystem_s {
 	F_err (*d_next)(F *dir, char **name);
 	F_err (*d_rewind)(F *dir);
 	F_err (*d_mkdir)(F *dir, char *name);
+	F_err (*d_delete)(F *dir);
 
 	/* Status operations */
 	F_err (*i_stat)(S *stat, char *path);

@@ -4,6 +4,7 @@
 #include <fs/fs.h>
 #include <std/int.h>
 #include <std/map.h>
+#include <arch/lock.h>
 
 typedef
 enum {
@@ -13,7 +14,7 @@ enum {
 } TYPE;
 
 typedef
-struct {
+struct d_f_s{
 	union {
 		map_t dir;
 		char *data;
@@ -21,6 +22,8 @@ struct {
 	void *other;
 	uint64_t size;
 	TYPE type;
+	lock_t reflock;
+	ref_t refcount;
 } d_f;
 
 F_type mfs_node_type(char *name);
@@ -39,6 +42,7 @@ F_err mfs_d_close(F *dir);
 F_err mfs_d_next(F *dir, char **name);
 F_err mfs_d_rewind(F *dir);
 F_err mfs_d_mkdir(F *dir, char *name);
+F_err mfs_d_delete(F *dir, char *name);
 
 
 filesystem_t *mfs_new_fs();

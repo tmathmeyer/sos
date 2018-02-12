@@ -14,15 +14,9 @@ char *strdup(char *);
 char *strcat(char *, char *);
 char *smart_join(char *, char *, char);
 
-typedef struct {
-    uint64_t size;
-    char *__underlying__[0];
-} split_t;
 
-char **split(char *, char);
-void split_free(char **);
 
-#define splitlen(strs) \
-    (((split_t *)(strs))[-1].size)
+int strseg_count(char *, char);
+char *strseg(char *, char, int);
 
 #endif

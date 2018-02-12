@@ -17,3 +17,11 @@ void spin_unlock(lock_t volatile *p) {
     asm volatile ("");
     *p = 0;
 }
+
+ref_t ref_count_inc(ref_t *p) {
+	return __sync_fetch_and_add(p, 1);
+}
+
+ref_t ref_count_dec(ref_t *p) {
+	return __sync_sub_and_fetch(p, 1);
+}

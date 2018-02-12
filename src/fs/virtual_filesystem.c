@@ -66,7 +66,7 @@ int open(char *path, uint16_t FLAGS) {
     char *PATH;
 
     if (pathlen == mountlen) {
-        PATH = "";
+        PATH = strdup("");
         OPEN = fs->d_open;
     } else {
         PATH = kmalloc(pathlen - mountlen + 1);
@@ -268,7 +268,7 @@ void _tree(char *path, int indent) {
         switch(node_type(e)) {
             case FILE:
                 repeat(indent+1, "  ");
-                kprintf("(f) %03s\n", e);
+                kprintf("(f) %03s [%03s]\n", e, ent);
                 break;
             case INVALID:
                 repeat(indent+1, "  ");
@@ -293,4 +293,8 @@ void _tree(char *path, int indent) {
 
 void tree(char *path) {
     _tree(path, 0);
+}
+
+int delete(char *path) {
+
 }

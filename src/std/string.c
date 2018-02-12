@@ -97,37 +97,55 @@ char *strdup(char *src) {
     return res;
 }
 
-char **split(char *str, char sep) {
-    uint64_t size = 1;
-    char *underlying = strdup(str);
+int strseg_count(char *str, char tok) {
+    int tokct = 0;
+    bool in_token = 0;
     while(*str) {
-        if (*str == sep) {
-            size++;
+        if (!in_token && *str != tok) {
+            in_token = true;
+            tokct++;
+        } else if (in_token && *str == tok) {
+            in_token = false;
         }
         str++;
     }
-
-    split_t *s = kmalloc(sizeof(split_t) + sizeof(char *)*size);
-    s->size = size;
-    for (int i=0; i<s->size;i++) {
-        s->__underlying__[i] = underlying;
-        if (i+1 < s->size) {
-            while(*underlying && *underlying != sep) {
-                underlying++;
-            }
-            if (*underlying == sep) {
-                *underlying = 0;
-                underlying++;
-            }
-        }
-    }
-
-    return s->__underlying__;
+    return tokct;
 }
 
-void split_free(char **_s) {
-    kfree(_s[0]);
-    kfree(&((split_t *)(_s))[-1]);
+char *strseg(char *str, char tok, int select) {
+    int tokct = 0;
+    bool in_token = 0;
+    int start_index = -1;
+    int index = 0;
+    while(str[index]) {
+        if (!in_token && str[index] != tok) {
+            if (tokct == select) {
+                start_index = index;
+            }
+            tokct++;
+            in_token = true;
+        } else if (in_token && str[index] == tok) {
+            if (tokct == select+1) {
+                goto OK;
+            }
+            in_token = false;
+        }
+        index++;
+    }
+    if (start_index == -1) {
+        return NULL;
+    }
+    
+OK:
+    (void)"allocate and return a string";
+    char *result = kmalloc(index-start_index + 1);
+    if (!result) {
+        return NULL;
+    }
+
+    memcpy(result, &str[start_index], index-start_index);
+    result[index-start_index] = 0;
+    return result;
 }
 
 char *strcat(char *a, char *b) {
@@ -164,5 +182,6 @@ char *smart_join(char *a, char *b, char sep) {
     memcpy(&res[0], a, _a-1);
     res[_a-1] = sep;
     memcpy(&res[_a], b, _b);
+    res[_a+_b] = 0;
     return res;
 }

@@ -11,6 +11,7 @@
 #include <shell/tty.h>
 #include <fs/virtual_filesystem.h>
 #include <fs/kernel_fs.h>
+#include <arch/misc.h>
 
 extern void load_idt(void);
 int kmain(struct multiboot_header *);

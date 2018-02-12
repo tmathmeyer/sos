@@ -11,6 +11,8 @@
 
 
 void wait(void);
+extern void unwind(void **arr, int size);
+void dumpstack();
 
 
 #endif

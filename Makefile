@@ -3,7 +3,7 @@
 # This stuff is all for building the kernel itself
 #
 ######
-kernel_flags := -nostdinc -Iinclude -fno-stack-protector -m64 -g
+kernel_flags := -nostdinc -Iinclude -fno-stack-protector -m64 -g -O0
 arch ?= x86_64
 
 BUILD := build
@@ -27,7 +27,9 @@ bochs: $(ISO)
 	@bochs -q
 
 debugq: $(ISO) $(SFSDISK)
-	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK)
+	@objcopy --only-keep-debug $(KERNEL) $(BUILD)/symbols
+	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK) -s -S &
+	@gdb
 
 $(SFSDISK): 
 	dd if=/dev/zero of=$@  bs=200K  count=1

@@ -4,6 +4,7 @@
 #include <std/map.h>
 #include <std/int.h>
 #include <std/string.h>
+#include <arch/misc.h>
 
 #include <shell/shell.h>
 
@@ -27,24 +28,24 @@ F_type mfs_node_type(char *name) {
 	}
 	map_t dir = root;
 	d_f *dir_or_file = &__root__;
-	char **path = split(name, '/');
-	for(int i=0; i<splitlen(path); i++) {
+	int entries = strseg_count(name, '/');
 
-		if (dir_or_file->type == MAP_FILE) {
-			split_free(path);
-			return INVALID;
-		}
-
-		if (hashmap_get(dir, path[i], (void **)&dir_or_file)) {
+	for(int i=0; i<entries; i++) {
+		char *entry = strseg(name, '/', i);
+		if (!entry) {
 			goto out;
 		}
 
+		if (hashmap_get(dir, entry, (void **)&dir_or_file)) {
+			kfree(entry);
+			goto out;
+		}
+
+		kfree(entry);
 		dir = dir_or_file->dir;
 	}
 
 out:
-	split_free(path);
-
 	/* NOTE: this does not support symlinks */
 	switch(dir_or_file->type) {
 		case MAP_DIR:
@@ -63,19 +64,37 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 		return FILE_NOT_FOUND;
 	}
 	map_t dir = root;
-	d_f *dir_or_file;
-	char **path = split(name, '/');
-	for(int i=1; i<splitlen(path); i++) {
-		if (hashmap_get(dir, path[i-1], (void **)&dir_or_file)) {
+	d_f *dir_or_file = NULL;
+	int entries = strseg_count(name, '/');
+
+	for(int i=0; i<entries-1; i++) {
+		char *entry = strseg(name, '/', i);
+
+		if (hashmap_get(dir, entry, (void **)&dir_or_file)) {
+			kfree(entry);
 			goto err;
 		}
+		kfree(entry);
+
 		if (dir_or_file->type == MAP_FILE) {
 			goto err;
 		}
+
 		dir = dir_or_file->dir;
 	}
-	if (hashmap_get(dir, path[splitlen(path)-1], (void **)&dir_or_file)) {
+
+	char *entry = strseg(name, '/', entries-1);
+	if (hashmap_get(dir, entry, (void **)&dir_or_file)) {
 		dir_or_file = kmalloc(sizeof(d_f));
+		if (!dir_or_file) {
+			kfree(entry);
+			goto err;
+		}
+
+		if (mode & CREATE_ON_OPEN) {
+			kprintf("creating file [%03s]\n", entry);
+		}
+
 		if (mode & CREATE_BLOCK_DEVICE) {
 			dir_or_file->type = MAP_BLOCK;
 		} else {
@@ -84,15 +103,24 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 		dir_or_file->data = NULL;
 		dir_or_file->other = NULL;
 		dir_or_file->size = 0;
-		if (hashmap_put(dir, path[splitlen(path)-1], dir_or_file)) {
+		dir_or_file->reflock = 0;
+		if (hashmap_put(dir, entry, dir_or_file)) {
+			kfree(entry);
 			kfree(dir_or_file);
 			goto err;
 		}
 	}
+	kfree(entry);
+
 	if (dir_or_file->type == MAP_DIR) {
 		goto err;
 	}
-	split_free(path);
+
+	spin_lock(&dir_or_file->reflock);
+	ref_count_inc(&dir_or_file->refcount);
+	spin_unlock(&dir_or_file->reflock);
+
+
 	file->__position__ = 0;
 	file->__open__ = true;
 	file->__data__ = dir_or_file;
@@ -111,15 +139,20 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 	return NO_ERROR;
 
 err:
-	split_free(path);
 	return FILE_NOT_FOUND;
 }
 
 F_err mfs_f_close(F *file) {
+	d_f *k = file->__data__;
+
 	file->fs = NULL;
 	file->__open__ = false;
 	file->__data__ = NULL;
 	file->__position__ = 0;
+
+	spin_lock(&k->reflock);
+	ref_count_dec(&k->refcount);
+	spin_unlock(&k->reflock);
 }
 
 
@@ -231,23 +264,34 @@ F_err mfs_d_open(F *dir, char *name, uint16_t mode) {
 	}
 	map_t _dir = root;
 	d_f *dir_or_file = &__root__;
-	char **path = split(name, '/');
-	for(int i=0; i<splitlen(path); i++) {
-		if (path[i][0] == 0) {
-			break;
-		}
-		if (hashmap_get(_dir, path[i], (void **)&dir_or_file)) {
+	int entries = strseg_count(name, '/');
+
+	for(int i=0; i<entries; i++) {
+		char *entry = strseg(name, '/', i);
+
+		if (hashmap_get(_dir, entry, (void **)&dir_or_file)) {
+			kfree(entry);
 			goto err;
 		}
+
 		if (dir_or_file->type == MAP_FILE) {
+			kfree(entry);
 			goto err;
 		}
+
 		_dir = dir_or_file->dir;
+		kfree(entry);
 	}
+
 	if (dir_or_file->type != MAP_DIR) {
 		goto err;
 	}
-	split_free(path);
+
+
+	spin_lock(&dir_or_file->reflock);
+	ref_count_inc(&dir_or_file->refcount);
+	spin_unlock(&dir_or_file->reflock);
+
 	dir->__position__ = 0;
 	dir->__open__ = true;
 	dir->__data__ = dir_or_file;
@@ -256,7 +300,6 @@ F_err mfs_d_open(F *dir, char *name, uint16_t mode) {
 	return NO_ERROR;
 
 err:
-	split_free(path);
 	return FILE_NOT_FOUND;
 }
 
@@ -272,10 +315,14 @@ F_err mfs_d_close(F *dir) {
 		hashmap_iterator_done(d_data->other);
 		d_data->other = NULL;
 	}
+
+	spin_lock(&d_data->reflock);
+	ref_count_dec(&d_data->refcount);
+	spin_unlock(&d_data->reflock);
+
 	return NO_ERROR;
 }
 
-int asd = 0;
 F_err mfs_d_next(F *dir, char **name) {
 	FAIL_ON(!dir);
 	FAIL_ON(!dir->__open__);
@@ -291,8 +338,6 @@ F_err mfs_d_next(F *dir, char **name) {
 
 	if (hashmap_iterator_has_next(d_data->other)) {
 		*name = hashmap_iterator_next(d_data->other)->key;
-		while(asd == 3);
-		asd++;
 	} else {
 		*name = NULL;
 	}
@@ -338,4 +383,17 @@ F_err mfs_d_mkdir(F *dir, char *name) {
 
 	hashmap_put(d_data->dir, name, newdir);
 	return NO_ERROR;
+}
+
+F_err mfs_d_delete(F *dir, char *name) {
+	FAIL_ON(!dir);
+	FAIL_ON(!dir->__open__);
+	FAIL_ON(dir->__type__ != DIRECTORY);
+	FAIL_ON(!name);
+
+	d_f *d_data = (d_f *)dir->__data__;
+	FAIL_ON(!d_data);
+
+	map_t *map = d_data->dir;
+	FAIL_ON(!map);
 }

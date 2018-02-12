@@ -54,6 +54,7 @@ filesystem_t *kernel_fs_init() {
 	result->d_next = (void *)mfs_d_next;
 	result->d_rewind = (void *)mfs_d_rewind;
 	result->d_mkdir = (void *)mfs_d_mkdir;
+	result->d_delete = (void *)mfs_d_delete;
 
 
 	result->f_truncate = (void *)kfs_nop;

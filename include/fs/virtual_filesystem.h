@@ -9,6 +9,7 @@ int open(char *, uint16_t);
 int close(int);
 int read(int, void *, uint64_t);
 int write(int, void *, uint64_t);
+int delete(char *path);
 void stat(int);
 int mkdir(char *);
 int scan_dir(int, char **);
