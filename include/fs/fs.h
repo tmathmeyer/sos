@@ -69,7 +69,7 @@ struct filesystem_s {
 	F_err (*i_unlink)(char *path);
 	F_err (*i_rename)(char *old_path, char *new_path);
 
-	F_type (*node_type)(char *path);
+	F_type (*node_type)(struct filesystem_s *fs, char *path);
 
 	void *__internal__;
 } filesystem_t;

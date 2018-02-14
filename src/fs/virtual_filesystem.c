@@ -75,7 +75,7 @@ int open(char *path, uint16_t FLAGS) {
         }
         memcpy(PATH, &path[mountlen-1], pathlen-mountlen);
         PATH[pathlen-mountlen] = 0;
-        switch(fs->node_type(PATH)) {
+        switch(fs->node_type(fs, PATH)) {
             case FILE:
             case BLOCK_DEVICE:
                 OPEN = fs->f_open;
@@ -94,12 +94,13 @@ int open(char *path, uint16_t FLAGS) {
         }
     }
 
+    f->fs = fs;
+
     if (OPEN(f, PATH, FLAGS)) {
         kfree(PATH);
         return 0;
     }
 
-    f->fs = fs;
     f->opened_as = strdup(path);
     kfree(PATH);
     return fid;

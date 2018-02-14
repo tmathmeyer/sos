@@ -26,7 +26,7 @@ struct d_f_s{
 	ref_t refcount;
 } d_f;
 
-F_type mfs_node_type(char *name);
+F_type mfs_node_type(filesystem_t *fs, char *name);
 
 F_err mfs_f_open(F *file, char *name, uint16_t mode);
 F_err mfs_f_close(F *file);

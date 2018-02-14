@@ -8,26 +8,27 @@
 
 #include <shell/shell.h>
 
-map_t root;
-filesystem_t *filesystem;
-d_f __root__;
-
 filesystem_t *mfs_new_fs() {
-	filesystem = kmalloc(sizeof(filesystem_t));
-	root = hashmap_new();
-	__root__.dir = root;
-	__root__.other = NULL;
-	__root__.size = 0;
-	__root__.type = MAP_DIR;
+	filesystem_t *filesystem = kmalloc(sizeof(filesystem_t));
+	map_t root = hashmap_new();
+	d_f *root_dir = kmalloc(sizeof(d_f));
+	root_dir->dir = root;
+	root_dir->other = NULL;
+	root_dir->size = 0;
+	root_dir->type = MAP_DIR;
+	filesystem->__internal__ = root_dir;
+
 	return filesystem;
 }
 
-F_type mfs_node_type(char *name) {
+F_type mfs_node_type(filesystem_t *fs, char *name) {
 	if (!name) {
 		return INVALID;
 	}
-	map_t dir = root;
-	d_f *dir_or_file = &__root__;
+
+	d_f *dir_or_file = fs->__internal__;
+	map_t dir = dir_or_file->dir;
+
 	int entries = strseg_count(name, '/');
 
 	for(int i=0; i<entries; i++) {
@@ -63,8 +64,11 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 	if (!file) {
 		return FILE_NOT_FOUND;
 	}
-	map_t dir = root;
-	d_f *dir_or_file = NULL;
+
+	d_f *dir_or_file = file->fs->__internal__;
+	map_t dir = dir_or_file->dir;
+
+	dir_or_file = NULL;
 	int entries = strseg_count(name, '/');
 
 	for(int i=0; i<entries-1; i++) {
@@ -131,7 +135,6 @@ F_err mfs_f_open(F *file, char *name, uint16_t mode) {
 			kprintf("kernel filesystem open failed\n");
 			while(1);
 	}
-	file->fs = filesystem;
 	return NO_ERROR;
 
 err:
@@ -258,8 +261,11 @@ F_err mfs_d_open(F *dir, char *name, uint16_t mode) {
 	if (!dir) {
 		return FILE_NOT_FOUND;
 	}
-	map_t _dir = root;
-	d_f *dir_or_file = &__root__;
+
+
+	d_f *dir_or_file = dir->fs->__internal__;
+	map_t _dir = dir_or_file->dir;
+
 	int entries = strseg_count(name, '/');
 
 	for(int i=0; i<entries; i++) {
@@ -292,7 +298,6 @@ F_err mfs_d_open(F *dir, char *name, uint16_t mode) {
 	dir->__open__ = true;
 	dir->__data__ = dir_or_file;
 	dir->__type__ = DIRECTORY;
-	dir->fs = filesystem;
 	return NO_ERROR;
 
 err:
