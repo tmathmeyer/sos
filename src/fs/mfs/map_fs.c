@@ -39,7 +39,7 @@ F_type mfs_node_type(filesystem_t *fs, char *name) {
 
 		if (hashmap_get(dir, entry, (void **)&dir_or_file)) {
 			kfree(entry);
-			goto out;
+			return INVALID;
 		}
 
 		kfree(entry);
@@ -381,6 +381,7 @@ F_err mfs_d_mkdir(F *dir, char *name) {
 	newdir->size = 0;
 	newdir->other = NULL;
 	newdir->dir = newdirmap;
+	newdir->reflock = 0;
 
 	hashmap_put(d_data->dir, name, newdir);
 	return NO_ERROR;

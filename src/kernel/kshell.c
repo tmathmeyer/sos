@@ -121,6 +121,10 @@ void run_cmd(char *run) {
         print_pages();
     } else if (!strncmp(run, "time", 5)) {
         show_time();
+    } else if (!strncmp(run, "pf", 3)) {
+        show();
+    } else if (!strncmp(run, "mkdir ", 6)) {
+        mkdir(run + 6);
     } else if (!strncmp(run, "cat ", 4)) {
         int f = open(run + 4, 0);
         if (!f) {

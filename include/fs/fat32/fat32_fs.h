@@ -4,7 +4,9 @@
 #include <fs/fs.h>
 #include <std/int.h>
 
-F_type fat32_node_type(char *name);
+filesystem_t *fat32_new_fs();
+
+F_type fat32_node_type(filesystem_t *fs, char *name);
 
 F_err fat32_f_open(F *file, char *name, uint16_t mode);
 F_err fat32_f_close(F *file);
@@ -21,9 +23,6 @@ F_err fat32_d_next(F *dir, char **name);
 F_err fat32_d_rewind(F *dir);
 F_err fat32_d_mkdir(F *dir, char *name);
 F_err fat32_d_delete(F *dir, char *name);
-
-
-filesystem_t *fat32_new_fs();
 
 
 #endif
