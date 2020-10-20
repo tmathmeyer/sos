@@ -49,5 +49,4 @@ void show_time() {
 	}   
     
 	kprintf("%03i/%03i/'%03i %03i:%03i:%03i UTC\n", day, month, year, hour, minute, second);
-   
 }
