@@ -45,7 +45,7 @@ void show_time() {
 	year = (year & 0x0F) + ((year / 16) * 10);
 	
 	// Converting 12 hour clock to 24 hour clock 
-	if (!(cMOS_READ(0x0B) & 0x02) && (hour & 0x80)) {
+	if (!(CMOS_READ(0x0B) & 0x02) && (hour & 0x80)) {
 		hour = ((hour & 0x7F) + 12) % 24;
 	}   
     
