@@ -20,10 +20,12 @@ _v; \
     inb_p(0x71); \
 })
 
-uint8_t hour, minute, second, registerB, day, month, year;
 void show_time() {
 	// referenced from : https://wiki.osdev.org/CMOS#RTC_Update_In_Progress
 	// reading values from associated CMOS register number containing respective data
+	
+	uint8_t hour, minute, second, registerB, day, month, year;
+	
 	hour = CMOS_READ(0x04);
 	minute = CMOS_READ(0x02);
 	second = CMOS_READ(0x00);
