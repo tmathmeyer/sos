@@ -24,7 +24,7 @@ void show_time() {
 	// referenced from : https://wiki.osdev.org/CMOS#RTC_Update_In_Progress
 	// reading values from associated CMOS register number containing respective data
 	
-	uint8_t hour, minute, second, registerB, day, month, year;
+	uint8_t hour, minute, second, day, month, year;
 	
 	hour = CMOS_READ(0x04);
 	minute = CMOS_READ(0x02);
@@ -45,8 +45,7 @@ void show_time() {
 	year = (year & 0x0F) + ((year / 16) * 10);
 	
 	// Converting 12 hour clock to 24 hour clock 
-	registerB = CMOS_READ(0x0B);
-	if (!(registerB & 0x02) && (hour & 0x80)) {
+	if (!(cMOS_READ(0x0B) & 0x02) && (hour & 0x80)) {
 		hour = ((hour & 0x7F) + 12) % 24;
 	}   
     
