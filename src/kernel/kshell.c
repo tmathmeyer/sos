@@ -107,6 +107,9 @@ bool alt_mode = false;
 bool ctrl_mode = false;
 bool super_mode = false;
 
+char history_data[100][RDL_SIZE];
+uint8_t tot_cmds=0;
+
 void run_cmd(char *run) {
     if (!(strncmp(run, "page 0x", 7))) {
         show_page_table_layout_for_address(hex2int(run+7));
@@ -135,6 +138,13 @@ void run_cmd(char *run) {
         }
     } else if (!strncmp(run, "tree ", 5)) {
         tree(run + 5);
+    }
+    else if (!strncmp(run, "history", 7)){
+        for(int i=0;i<tot_cmds;i++){
+            write_num(i+1);
+            kprintf(" %05s",history_data[i]);
+            kprintf("\n");
+        }
     } else {
         kprintf("INVALID COMMAND\n");
     }
@@ -184,12 +194,17 @@ void kshell(unsigned char key) {
         if (up) {
             int i;
             kprintf("\n");
+            for (i = 0; i < rdl_index; i++)
+            {
+                history_data[tot_cmds][i]=readline[i];
+            }
             run_cmd(readline);
             rdl_index = 0;
             for(i=0;i<RDL_SIZE;i++) {
                 readline[i] = 0;
             }
             kprintf("%04s", "SOS$ ");
+            tot_cmds++;
         }
         break;
 
