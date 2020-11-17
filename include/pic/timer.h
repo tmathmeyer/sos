@@ -34,4 +34,6 @@ union {
 
 void init_timer();
 
+double get_uptime();
+
 #endif
