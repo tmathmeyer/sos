@@ -11,7 +11,12 @@ void timer(struct interrupt_frame * frame) {
   return;
 }
 
-// Returns how many seconds the computer wa
+void sleep(double seconds) {
+  double to_wait = seconds + get_uptime();
+  while(to_wait != get_uptime());
+}
+
+// Returns how many seconds the computer was awake
 double get_uptime() {
   return ticks * (1 / hz);
 }

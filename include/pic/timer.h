@@ -36,4 +36,6 @@ void init_timer();
 
 double get_uptime();
 
+void sleep(double seconds);
+
 #endif
