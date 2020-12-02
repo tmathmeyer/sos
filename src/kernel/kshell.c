@@ -135,7 +135,7 @@ void Add_data(char* data,uint8_t size){
     struct Dynamic_List *node=NULL, *current=head;
     uint8_t i=0;
 
-    /*traverse to the end of dynaic list*/
+    /*traverse to the end of dynamic list*/
     while (current!=NULL && current->next!=NULL){
         current=current->next;
         i++;
