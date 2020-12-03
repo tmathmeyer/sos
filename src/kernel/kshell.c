@@ -133,6 +133,8 @@ void run_cmd(char *run) {
             }
             kprintf("\n");
         }
+    } else if (!strncmp(run, "shut down", 9)){
+        outs(0x604, 0x2000);
     } else if (!strncmp(run, "tree ", 5)) {
         tree(run + 5);
     } else {
