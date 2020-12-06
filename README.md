@@ -21,7 +21,7 @@ Currently active development, exclusively as a hobby / learning exercise.
 | Make Target   | Description  |
 | ------------- | ------------ |
 | make qemu     | Builds the whole OS and launches it in qemu  |
-| make bochs    | Builds the whols OS and launches it in bochs |
+| make bochs    | Builds the whole OS and launches it in bochs |
 | make debugq   | Builds the whole OS and launches it in qemu with debug flags |
 
 ## Contributing
