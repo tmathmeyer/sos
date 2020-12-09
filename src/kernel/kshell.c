@@ -5,6 +5,7 @@
 #include <pci/pci.h>
 #include <arch/time.h>
 #include <fs/virtual_filesystem.h>
+#include<mem/alloc.h>
 
 uint8_t keymap[][128] = {
     {0},
@@ -101,11 +102,72 @@ uint8_t keymap[][128] = {
 #define KB_LSHIFT  42
 #define KB_RSHIFT  54
 
+/*max history data limit*/
+#define MAX_CMD 100
+
 bool caps_mode = false;
 bool shift_mode = false;
 bool alt_mode = false;
 bool ctrl_mode = false;
 bool super_mode = false;
+
+
+/* dynamic data strecture*/
+struct Dynamic_List {
+    char data[RDL_SIZE];
+    struct Dynamic_List * next;
+};
+
+
+/*head of dynamic list*/
+struct Dynamic_List *head=NULL;
+
+
+void Add_data(char* data,uint8_t size){
+    /*if head node is empty*/
+    if(head==NULL){
+        head=(struct Dynamic_List *)kmalloc(sizeof(struct Dynamic_List));
+        memcpy(head->data,data,size);
+        head->next=NULL;
+        return;
+    }
+    /*if head node is not empty*/
+    struct Dynamic_List *node=NULL, *current=head;
+    uint8_t i=0;
+
+    /*traverse to the end of dynamic list*/
+    while (current!=NULL && current->next!=NULL){
+        current=current->next;
+        i++;
+    }
+
+    /*check boundry conditions*/
+    if(i+1>MAX_CMD)head=head->next;
+    
+    /*allocate the memory*/
+    node=(struct Dynamic_List *)kmalloc(sizeof(struct Dynamic_List));
+    
+    /*add data to new node*/
+    memcpy(node->data,data,size);
+    node->next=NULL;
+
+    /*assign new node at the end of list*/
+    if(current==NULL)current=node;
+    else current->next=node;
+}
+
+void print_history(){
+    /*pointer for travel through list*/
+    struct Dynamic_List *node;
+    node=head;
+    uint8_t i=0;
+    /*print data until the end of list*/
+    while((node->next)!=NULL){
+        kprintf("%07i %05s\n",i+1,node->data);
+        node=node->next;
+        i++;
+    }
+}
 
 void run_cmd(char *run) {
     if (!(strncmp(run, "page 0x", 7))) {
@@ -137,6 +199,10 @@ void run_cmd(char *run) {
         outs(0x604, 0x2000);
     } else if (!strncmp(run, "tree ", 5)) {
         tree(run + 5);
+    }
+    else if (!strncmp(run, "history", 7)){
+        print_history();
+
     } else {
         kprintf("INVALID COMMAND\n");
     }
@@ -172,6 +238,7 @@ char readline[RDL_SIZE] = {0};
 uint8_t rdl_index = 0;
 
 void kshell(unsigned char key) {
+
     bool up = false;
     if (key > 128) {
         up = true;
@@ -186,6 +253,7 @@ void kshell(unsigned char key) {
         if (up) {
             int i;
             kprintf("\n");
+            Add_data(readline,rdl_index);
             run_cmd(readline);
             rdl_index = 0;
             for(i=0;i<RDL_SIZE;i++) {
