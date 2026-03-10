@@ -5,6 +5,7 @@
 #include <pci/pci.h>
 #include <arch/time.h>
 #include <fs/virtual_filesystem.h>
+#include <arch/io.h>
 
 uint8_t keymap[][128] = {
     {0},

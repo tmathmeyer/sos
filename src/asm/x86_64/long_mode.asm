@@ -60,6 +60,7 @@ _precom2:
     pop rax
     sti
     iretq
+
 interrupt_handler 0
 interrupt_handler 1
 interrupt_handler 2
@@ -97,15 +98,15 @@ interrupt_handler 33
 
 
 read_port:
-mov edx, [esp + 4]
-in al, dx   
-ret
+    mov edx, [esp + 4]
+    in al, dx
+    ret
 
 write_port:
-mov   edx, [esp + 4]    
-mov   al, [esp + 4 + 4]  
-out   dx, al  
-ret
+    mov   edx, [esp + 4]
+    mov   al, [esp + 4 + 4]
+    out   dx, al
+    ret
 
 unwind:
     push rbx

@@ -94,7 +94,7 @@ int kmain(struct multiboot_header *multiboot_info) {
 
     /* setup kernel information */
     kernel_info_init();
-    
+
     /* interrupt enable */
     setup_IDT();
 

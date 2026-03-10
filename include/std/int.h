@@ -8,13 +8,13 @@ typedef unsigned int            uint32_t;
 typedef unsigned long long      uint64_t;
 typedef unsigned long long      uintptr_t;
 typedef unsigned long long      size_t;
-typedef unsigned char           bool;
+//typedef unsigned char           bool;
 
 #define true  1
 #define false 0
 
 #define NULL (void *)0
 
-#define bool int
+//#define bool int
 
 #endif

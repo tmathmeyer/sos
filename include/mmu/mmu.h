@@ -73,7 +73,7 @@ uint64_t get_next_free_frame();
 uint64_t get_next_free_page();
 void release_frame(uint64_t);
 void release_page(uint64_t);
-void level2_memory_allocator();
+void level2_memory_allocator(frame_allocator *alloc, frame_t f, uint64_t last_frame);
 void level1_memory_allocator(frame_allocator *alloc);
 void print_frames();
 void print_pages();

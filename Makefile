@@ -34,14 +34,14 @@ debugq: $(ISO) $(SFSDISK)
 	@qemu-system-x86_64 -m 265M -d int -no-reboot -hda $(ISO) -hdb $(SFSDISK) -s -S &
 	@gdb
 
-$(SFSDISK): 
+$(SFSDISK):
 	dd if=/dev/zero of=$@  bs=200K  count=1
 
 $(KERNEL): $(C_OBJ) $(ASM_OBJ)
 	@ld -n -T $(LINKER_SCRIPT) -o $(KERNEL) $(C_OBJ) $(ASM_OBJ)
 	@echo ld [objects] -o $(KERNEL)
 
-$(BUILD)/%.o: src/%.c 
+$(BUILD)/%.o: src/%.c
 	@mkdir -p $(shell dirname $@)
 	@gcc $(kernel_flags) -c $< -o $@
 	@echo gcc -c $<
